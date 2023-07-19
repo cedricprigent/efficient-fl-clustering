@@ -1,0 +1,20 @@
+dataset: mnist
+strategy: fedavg
+model: cnn
+
+num_rounds: 50
+min_available_clients: 2
+min_fit_clients: 2
+fraction_fit: 0.5
+local_epochs: 1
+
+n_client_server_node: 0
+n_client_per_node: 1
+n_part: 50
+alpha: 10
+
+batchsize: 20
+lr: 0.003
+momentum: 0.9
+
+async: 7200
