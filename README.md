@@ -24,16 +24,22 @@ $ pip install -U -e .
 $ git clone https://gitlab.inria.fr/Kerdata/Kerdata-Codes/fl-base.git
 ```
 
+**Pull docker image**
+```shell
+docker pull nvidia/cuda:11.2.2-base-ubuntu20.04
+docker save nvidia/cuda:11.2.2-base-ubuntu20.04 > .fl-clustering/artifacts/docker-image.tar
+```
+
 **Copying folder from laptop to G5K front-end**
 ```shell
 # or copying from your laptop
-$ scp -r fl-base username@access.grid5000.fr:lille
+$ scp -r fl-clustering username@access.grid5000.fr:lille
 ```
 
 ### Adapting workflow file for your homedir
 Modify the saving directory for log files 
 ```shell
-$ nano fl-base/scenario/grid5000/workflow.yaml
+$ nano fl-clustering/scenario/grid5000/workflow.yaml
 ```
 ```yaml
 # Server
