@@ -3,7 +3,7 @@ strategy: testencoding
 model: regression
 
 num_rounds: 50
-min_available_clients: 20
+min_available_clients: 15
 min_fit_clients: 10
 fraction_fit: 0.5
 local_epochs: 1

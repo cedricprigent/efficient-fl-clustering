@@ -14,5 +14,5 @@ layers:
 - name: edge
   services:
   - name: FLClient
-    quantity: 2
+    quantity: 1
 
