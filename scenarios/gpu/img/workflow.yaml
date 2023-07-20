@@ -14,9 +14,7 @@
     - name: Installing docker
       shell: '/grid5000/code/bin/g5k-setup-nvidia-docker'
     - name: Loading docker image
-      shell: 'docker load < /tmp/app/docker-image.tar'
-    - name: Building docker image
-      shell: 'docker build /tmp/app/. -f /tmp/app/Dockerfile.gpu --tag gpu-docker'
+      shell: 'docker load < /tmp/app/gpu-docker.tar'
     - name: Running docker image
       shell: 'docker run --network=host --gpus all --name {{ container_name }} -t -d gpu-docker'
     - name: Downloading dataset
