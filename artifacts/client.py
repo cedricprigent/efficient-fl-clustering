@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 import numpy as np
 
 from utils.datasets import load_partition
-from utils.models import Net, LogisticRegression, AutoEncoder
+from utils.models import Net, LogisticRegression, AutoEncoder, EncoderNet
 from utils.partition_data import Partition
 from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
 import logging
@@ -83,7 +83,9 @@ if __name__ == "__main__":
     model = LogisticRegression(input_size=28*28, num_classes=10).to(DEVICE)
 
     # Testing
-    encoder = AutoEncoder().to(DEVICE).encoder
+    #encoder = AutoEncoder().to(DEVICE).encoder
+    encoder = EncoderNet().to(DEVICE)
+    encoder.load_state_dict(torch.load('enc_save_orig.pth'))
 
     if args.transform == "solarize":
         transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])

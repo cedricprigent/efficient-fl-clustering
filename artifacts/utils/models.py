@@ -148,3 +148,28 @@ class AutoEncoder(torch.nn.Module):
         encoded = self.encoder(x)
         decoded = torch.reshape(self.decoder(encoded), (-1, 1, 28, 28))
         return decoded
+
+
+class EncoderNet(nn.Module):
+    def __init__(self):
+        super(EncoderNet, self).__init__()
+        self.convnet = nn.Sequential(nn.Conv2d(1, 32, 5), nn.PReLU(),
+                                     nn.MaxPool2d(2, stride=2),
+                                     nn.Conv2d(32, 64, 5), nn.PReLU(),
+                                     nn.MaxPool2d(2, stride=2))
+        self.fc = nn.Sequential(nn.Linear(64 * 4 * 4, 256),
+                                nn.PReLU(),
+                                nn.Linear(256, 256),
+                                nn.PReLU(),
+                                nn.Linear(256, 2)
+                                )
+
+        def forward(self, x):
+            output = self.convnet(x)
+            # print(f'after convnet' + str(output.size()))
+            output = output.view(output.size()[0], -1)
+            output = self.fc(output)
+            return output
+
+        def get_encoding(self, x):
+            return self.forward(x)
