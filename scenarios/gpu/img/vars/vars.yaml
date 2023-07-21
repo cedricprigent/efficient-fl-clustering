@@ -3,16 +3,16 @@ strategy: testencoding
 model: regression
 
 num_rounds: 50
-min_available_clients: 15
-min_fit_clients: 10
+min_available_clients: 20
+min_fit_clients: 20
 fraction_fit: 0.5
 local_epochs: 1
 transform: ['none', 'solarize', 'elastic']
 n_transforms: 3
 
 n_client_server_node: 10
-n_client_per_node: 10
-n_part: 30
+n_client_per_node: 20
+n_part: 100
 alpha: 10
 
 async: 7200

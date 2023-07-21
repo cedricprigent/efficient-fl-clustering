@@ -17,6 +17,8 @@
       shell: 'docker load < /tmp/app/gpu-docker.tar'
     - name: Running docker image
       shell: 'docker run --network=host --gpus all --name {{ container_name }} -t -d gpu-docker'
+    - name: Copy local files to docker container
+      shell: 'docker cp -a /tmp/app/. fl-container:/app/artifacts/'
     - name: Downloading dataset
       shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/dl_dataset.py --dataset {{ dataset }}'
     - name: Generating partitions
@@ -69,7 +71,6 @@
   finalize:
     - name: Retreiving log files
       shell: "sudo docker cp {{ log_dir }} {{ save_dir }}"
-      when: log_dir.stat.exists and save_dir.stat.exists
     - debug:
         msg: "Stop and remove container"
     - shell: "docker stop {{ container_name }}"
