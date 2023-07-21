@@ -85,7 +85,7 @@ if __name__ == "__main__":
     # Testing
     #encoder = AutoEncoder().to(DEVICE).encoder
     encoder = EncoderNet().to(DEVICE)
-    encoder.load_state_dict(torch.load('enc_save_orig.pth'))
+    encoder.load_state_dict(torch.load('/app/artifacts/enc_save_orig.pth'))
 
     if args.transform == "solarize":
         transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])

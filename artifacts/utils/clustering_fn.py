@@ -16,6 +16,15 @@ def select_samples(dataloader, label, device):
     return samples
 
 
+def split_by_class(dataloader, device):
+    samples = [[] for _ in range(10)]
+    for _, (x, y) in enumerate(dataloader):
+        for i in range(len(x)):
+            samples[y[i].detach().cpu().numpy()].append(x[i].to(device))
+
+    return samples
+
+
 def compute_low_dims(net, batch):
     try:
         return net(torch.stack(batch))
@@ -29,8 +38,9 @@ def compute_avg(low_dim):
 
 def compute_low_dims_per_class(net, dataloader, device):
     ld = np.array([])
+    class_batches = split_by_class(dataloader, device=device)
     for class_id in range(10):
-        ld = np.append(ld, compute_avg(compute_low_dims(net, select_samples(dataloader, class_id, device=device))))
+        ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id])))
     return ld
 
 

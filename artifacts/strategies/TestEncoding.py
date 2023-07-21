@@ -20,7 +20,7 @@ from flwr.common import (
 
 from torch.utils.tensorboard import SummaryWriter
 
-from .aggregate import aggregate_median
+from .aggregate import aggregate
 from .TensorboardStrategy import TensorboardStrategy
 from utils.clustering_fn import make_clusters, print_clusters
 
@@ -48,7 +48,7 @@ class TestEncoding(TensorboardStrategy):
         self.num_clients_to_keep = num_clients_to_keep
 
     def __repr__(self) -> str:
-        return "Krum"
+        return "TestEncoding"
 
 
     def aggregate_fit(
@@ -86,7 +86,7 @@ class TestEncoding(TensorboardStrategy):
         print_clusters(cluster_labels, cluster_truth, n_clusters=3)
 
         parameters_aggregated = ndarrays_to_parameters(
-            aggregate_median(weights_results)
+            aggregate(weights_results)
         )
 
         # Aggregate custom metrics if aggregation fn was provided
