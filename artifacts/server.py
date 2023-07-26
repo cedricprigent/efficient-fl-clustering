@@ -83,10 +83,22 @@ if __name__ == "__main__":
 	parser.add_argument(
 		"--local_epochs", type=int, required=False, default=1, help="Local epochs"
 	)
+	parser.add_argument(
+		"--n_clusters", type=int, required=False, default=3, help="Number of clusters"
+	)
 
 	args = parser.parse_args()
 	# Global Model
-	model = LogisticRegression(input_size=28*28, num_classes=10).to(DEVICE)
+	if args.model == "regression":
+		model = LogisticRegression(input_size=28*28, num_classes=10).to(DEVICE)
+	elif args.model == "cnn":
+		model = Net().to(DEVICE)
+	else:
+		try:
+			raise ValueError('Invalid model name')
+		except ValueError as err:
+			logging.info('Invalid model name')
+			raise
 
 	# SummaryWriter
 	writer = SummaryWriter(log_dir=f"./fl_logs/{args.strategy}", filename_suffix=f'{args.strategy}')
@@ -120,6 +132,7 @@ if __name__ == "__main__":
 			eval_fn=get_eval_fn(model),
 			writer=writer,
 			on_fit_config_fn=fig_config,
+			n_clusters=args.n_clusters
 		)
 	elif args.strategy == "fedmedian":
 		strategy = FedMedian(

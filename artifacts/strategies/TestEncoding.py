@@ -34,7 +34,7 @@ class TestEncoding(TensorboardStrategy):
         eval_fn,
         writer,
         on_fit_config_fn,
-        num_clients_to_keep=1):
+        n_clusters):
 
         super().__init__(min_fit_clients=min_fit_clients, 
                         min_available_clients=min_available_clients, 
@@ -45,7 +45,8 @@ class TestEncoding(TensorboardStrategy):
                         writer=writer)
         
         self.writer = writer
-        self.num_clients_to_keep = num_clients_to_keep
+        self.n_clusters = n_clusters
+        # self.cluster_centers = None
 
     def __repr__(self) -> str:
         return "TestEncoding"
@@ -76,14 +77,20 @@ class TestEncoding(TensorboardStrategy):
         ]
         low_dims = [np.array(sample).flatten() for sample in low_dims]
         print("low_dims size: ", np.array(low_dims).shape)
+        print(low_dims)
 
         cluster_truth = [
             fit_res.metrics for _, fit_res in results
         ]
 
         # Building clusters
-        cluster_labels, cluster_centers = make_clusters(low_dims, n_clusters=3)
-        print_clusters(cluster_labels, cluster_truth, n_clusters=3)
+        cluster_labels, cluster_centers = make_clusters(low_dims, n_clusters=self.n_clusters)
+        # if self.cluster_centers is None:
+        #     cluster_labels, self.cluster_centers = make_clusters(low_dims, n_clusters=self.n_clusters)
+        # else:
+        #     cluster_labels, self.cluster_centers = make_clusters(low_dims, n_clusters=self.n_clusters, cluster_centers=self.cluster_centers)
+
+        print_clusters(cluster_labels, cluster_truth, n_clusters=self.n_clusters)
 
         parameters_aggregated = ndarrays_to_parameters(
             aggregate(weights_results)

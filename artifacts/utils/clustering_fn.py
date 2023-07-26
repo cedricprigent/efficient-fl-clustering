@@ -3,8 +3,6 @@ import numpy as np
 from sklearn.cluster import KMeans
 import logging
 
-z_dim = 100
-
 def select_samples(dataloader, label, device):
     chosen_indices = []
     samples = []
@@ -25,27 +23,27 @@ def split_by_class(dataloader, device):
     return samples
 
 
-def compute_low_dims(net, batch):
+def compute_low_dims(net, batch, output_size):
     try:
         return net(torch.stack(batch))
     except:
-        return torch.rand(1, z_dim)
+        return torch.rand(1, output_size)
 
 
 def compute_avg(low_dim):
     return low_dim.mean(0).cpu().detach().numpy()
 
 
-def compute_low_dims_per_class(net, dataloader, device):
+def compute_low_dims_per_class(net, dataloader, output_size, device):
     ld = np.array([])
     class_batches = split_by_class(dataloader, device=device)
     for class_id in range(10):
-        ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id])))
+        ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id], output_size)))
     return ld
 
 
 def make_clusters(low_dims, n_clusters):
-    kmeans = KMeans(n_clusters=n_clusters).fit(low_dims)
+    kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
     centers = kmeans.cluster_centers_
     labels = kmeans.labels_
 

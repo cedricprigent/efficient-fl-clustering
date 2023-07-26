@@ -2,6 +2,7 @@ from collections import OrderedDict
 from typing import List, Tuple
 import argparse
 import copy
+import time
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -12,6 +13,7 @@ from utils.datasets import load_partition
 from utils.models import Net, LogisticRegression, AutoEncoder, EncoderNet
 from utils.partition_data import Partition
 from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
+from utils.transforms import Rotate
 import logging
 import flwr as fl
 from utils.clustering_fn import compute_low_dims_per_class
@@ -46,7 +48,10 @@ class FlowerClient(fl.client.NumPyClient):
             train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=args)
 
         # compute low dimensional representation of local data
-        ld = compute_low_dims_per_class(encoder, self.trainloader, device=DEVICE)
+        start = time.time()
+        ld = compute_low_dims_per_class(encoder, self.trainloader, output_size=z_dim, device=DEVICE)
+        print("Time to compute low dims: ", time.time() - start)
+        print(ld.shape)
 
         # concatenating model weights and low dim to return to the server
         params = self.get_parameters()
@@ -78,19 +83,39 @@ if __name__ == "__main__":
     parser.add_argument(
         "--transform", type=str, required=False, default=None, help="Transform to apply to input data"
     )
+    parser.add_argument(
+        "--path_to_encoder_weights", type=str, required=False, default='/app/artifacts/enc_save_orig.pth', help="Path to encoder weights"
+    )
     args = parser.parse_args()
 
-    model = LogisticRegression(input_size=28*28, num_classes=10).to(DEVICE)
+    if args.model == "regression":
+        model = LogisticRegression(input_size=28*28, num_classes=10).to(DEVICE)
+    elif args.model == "cnn":
+        model = Net().to(DEVICE)
+    else:
+        try:
+            raise ValueError('Invalid model name')
+        except ValueError as err:
+            logging.info('Invalid model name')
+            raise
 
     # Testing
-    #encoder = AutoEncoder().to(DEVICE).encoder
+    # encoder = AutoEncoder().to(DEVICE).encoder
+    #z_dim = 100
     encoder = EncoderNet().to(DEVICE)
-    encoder.load_state_dict(torch.load('/app/artifacts/enc_save_orig.pth'))
+    encoder.load_state_dict(torch.load(args.path_to_encoder_weights, map_location=torch.device(DEVICE)))
+    z_dim = 2
 
     if args.transform == "solarize":
         transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])
-    if args.transform == "elastic":
+    elif args.transform == "elastic":
         transform = transforms.Compose([transforms.ElasticTransform(alpha=100.0), transforms.ToTensor()])
+    elif args.transform == "rotate90":
+        transform = transforms.Compose([Rotate(90), transforms.ToTensor()])
+    elif args.transform == "rotate180":
+        transform = transforms.Compose([Rotate(180), transforms.ToTensor()])
+    elif args.transform == "rotate270":
+        transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
     else:
         transform = transforms.Compose(
             [transforms.ToTensor()]

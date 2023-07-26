@@ -47,7 +47,8 @@
               --min_available_clients {{ min_available_clients }}
               --min_fit_clients {{ min_fit_clients }}
               --fraction_fit {{ fraction_fit }}
-              --local_epochs {{ local_epochs }}'
+              --local_epochs {{ local_epochs }}
+              --n_clusters {{ n_transforms }}'
       async: "{{ async }}"
       poll: 0
     - debug:

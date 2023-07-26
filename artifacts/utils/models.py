@@ -164,12 +164,12 @@ class EncoderNet(nn.Module):
                                 nn.Linear(256, 2)
                                 )
 
-        def forward(self, x):
-            output = self.convnet(x)
-            # print(f'after convnet' + str(output.size()))
-            output = output.view(output.size()[0], -1)
-            output = self.fc(output)
-            return output
+    def forward(self, x):
+        output = self.convnet(x)
+        # print(f'after convnet' + str(output.size()))
+        output = output.view(output.size()[0], -1)
+        output = self.fc(output)
+        return output
 
-        def get_encoding(self, x):
-            return self.forward(x)
+    def get_encoding(self, x):
+        return self.forward(x)
