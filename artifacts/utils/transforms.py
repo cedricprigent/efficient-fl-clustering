@@ -10,3 +10,12 @@ class Rotate(object):
     def __call__(self, sample):
         
         return sample.rotate(self.rotation)
+
+
+
+class LabelFlip(object):
+    """Flip labels of the dataset."""
+
+    def __call__(self, label):
+
+        return (label-1) % 10

@@ -2,7 +2,6 @@ from collections import OrderedDict
 from typing import List, Tuple
 import argparse
 import copy
-import time
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -13,7 +12,7 @@ from utils.datasets import load_partition
 from utils.models import Net, LogisticRegression, AutoEncoder, EncoderNet
 from utils.partition_data import Partition
 from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
-from utils.transforms import Rotate
+from utils.transforms import Rotate, LabelFlip
 import logging
 import flwr as fl
 from utils.clustering_fn import compute_low_dims_per_class
@@ -24,7 +23,7 @@ batch_size = 64
 logging.basicConfig(filename="log_traces/logfilename.log", level=logging.INFO)
 
 
-class FlowerClient(fl.client.NumPyClient):
+class EncodingClient(fl.client.NumPyClient):
     def __init__(self, model, trainloader, valloader):
         self.model = model
         self.trainloader = trainloader
@@ -39,23 +38,60 @@ class FlowerClient(fl.client.NumPyClient):
         self.model.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters, config):
-        self.set_parameters(parameters)
+        if config["task"] == "compute_low_dim":
+            # compressing local data
+            print("CLIENT NUM: ", config["client_number"])
+            ld = compute_low_dims_per_class(encoder, self.trainloader, output_size=z_dim, device=DEVICE)
+            return [np.array(ld)], len(self.trainloader), {"transform": str(args.transform), "client_number": config["client_number"]}
+        else:
+            # local training
+            print("CLIENT NUM: ", config["client_number"])
+            self.set_parameters(parameters)
+            if args.model == 'cnn':
+                train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=args)
+            elif args.model == 'regression':
+                train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=args)
 
+            params = self.get_parameters()
+
+            return params, len(self.trainloader), {"transform": str(args.transform), "client_number": config["client_number"]}
+
+    def evaluate(self, parameters, config):
+        self.set_parameters(parameters)
+        if args.model == 'cnn':
+            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
+        elif args.model == 'regression':
+            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+
+        print(f"Cluster {config['cluster_id']} EVAL model performance - accuracy: {accuracy}, loss: {loss} | transform {args.transform}")
+
+        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
+
+
+class StandardClient(fl.client.NumPyClient):
+    def __init__(self, model, trainloader, valloader):
+        self.model = model
+        self.trainloader = trainloader
+        self.valloader = valloader
+
+    def get_parameters(self, config=None):
+        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+
+    def set_parameters(self, parameters):
+        params_dict = zip(self.model.state_dict().keys(), parameters)
+        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+        self.model.load_state_dict(state_dict, strict=True)
+
+    def fit(self, parameters, config):
         # local training
+        self.set_parameters(parameters)
         if args.model == 'cnn':
             train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=args)
         elif args.model == 'regression':
             train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=args)
 
-        # compute low dimensional representation of local data
-        start = time.time()
-        ld = compute_low_dims_per_class(encoder, self.trainloader, output_size=z_dim, device=DEVICE)
-        print("Time to compute low dims: ", time.time() - start)
-        print(ld.shape)
-
-        # concatenating model weights and low dim to return to the server
         params = self.get_parameters()
-        params.append(ld)
 
         return params, len(self.trainloader), {"transform": str(args.transform)}
 
@@ -66,7 +102,10 @@ class FlowerClient(fl.client.NumPyClient):
         elif args.model == 'regression':
             loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
 
+        print(f"EVAL model performance - accuracy: {accuracy}, loss: {loss}")
+
         return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
 
 
 if __name__ == "__main__":
@@ -85,6 +124,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--path_to_encoder_weights", type=str, required=False, default='/app/artifacts/enc_save_orig.pth', help="Path to encoder weights"
+    )
+    parser.add_argument(
+        "--client", type=str, required=False, default='EncodingClient', help="EncoderClient, StandardClient"
     )
     args = parser.parse_args()
 
@@ -106,6 +148,7 @@ if __name__ == "__main__":
     encoder.load_state_dict(torch.load(args.path_to_encoder_weights, map_location=torch.device(DEVICE)))
     z_dim = 2
 
+    target_transform=None
     if args.transform == "solarize":
         transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])
     elif args.transform == "elastic":
@@ -120,14 +163,25 @@ if __name__ == "__main__":
         transform = transforms.Compose(
             [transforms.ToTensor()]
         )
+    if args.transform == "label_flip":
+        target_transform = LabelFlip()
 
-    trainloader, testloader, _ = load_partition(args.num, batch_size, transform=transform)
+    trainloader, testloader, _ = load_partition(args.num, batch_size, transform=transform, target_transform=target_transform)
 
-    fl.client.start_numpy_client(
-        server_address=args.server_address,
-        client=FlowerClient(
+    if args.client == "EncodingClient":
+        client=EncodingClient(
             model=model,
             trainloader=trainloader,
             valloader=testloader
         )
+    else:
+        client=StandardClient(
+            model=model,
+            trainloader=trainloader,
+            valloader=testloader
+        )
+
+    fl.client.start_numpy_client(
+        server_address=args.server_address,
+        client=client
     )

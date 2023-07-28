@@ -44,6 +44,7 @@ def load_partition(num_partition, batch_size=4, transform=None, target_transform
     testset = torch.load(f"/tmp/app/data/test/test_subset-{num_partition}.pth")
 
     trainset.target_transform = target_transform
+    testset.target_transform = target_transform
     trainset.transform = transform
     testset.transform = transform
 

@@ -12,6 +12,8 @@ import time
 from utils.datasets import load_data
 from utils.models import Net, LogisticRegression
 from utils.function import test_standard_classifier, test_regression
+from utils.app import Clustering_Server, Server
+from flwr.server.client_manager import SimpleClientManager
 
 from strategies.TensorboardStrategy import TensorboardStrategy
 from strategies.FedMedian import FedMedian
@@ -21,7 +23,7 @@ from strategies.TestEncoding import TestEncoding
 torch.manual_seed(0)
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 64
-fraction_eval=0
+fraction_eval=1
 dataset = 'mnist'
 
 
@@ -123,7 +125,7 @@ if __name__ == "__main__":
 			writer=writer,
 			on_fit_config_fn=fig_config,
 		)
-	if args.strategy == "testencoding":
+	elif args.strategy == "testencoding":
 		strategy = TestEncoding(
 			min_fit_clients=args.min_fit_clients,
 			min_available_clients=args.min_available_clients,
@@ -132,7 +134,8 @@ if __name__ == "__main__":
 			eval_fn=get_eval_fn(model),
 			writer=writer,
 			on_fit_config_fn=fig_config,
-			n_clusters=args.n_clusters
+			n_clusters=args.n_clusters,
+			model=model
 		)
 	elif args.strategy == "fedmedian":
 		strategy = FedMedian(
@@ -160,8 +163,14 @@ if __name__ == "__main__":
 		num_rounds=args.num_rounds
 	)
 	
+	if args.strategy == "testencoding":
+		server = Clustering_Server(strategy=strategy)
+	else:
+		server = Server(client_manager=SimpleClientManager(), strategy=strategy)
+
 	fl.server.start_server(
 		server_address=args.server_address,
 		config=config,
-		strategy=strategy
+		strategy=strategy,
+		server=server
 	)

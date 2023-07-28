@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import MiniBatchKMeans
 import logging
 
 def select_samples(dataloader, label, device):
@@ -42,12 +42,15 @@ def compute_low_dims_per_class(net, dataloader, output_size, device):
     return ld
 
 
-def make_clusters(low_dims, n_clusters):
-    kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
+def make_clusters(low_dims, n_clusters, kmeans=None):
+    if kmeans is None:
+        kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=6).partial_fit(low_dims)
+    else:
+        kmeans = kmeans.partial_fit(low_dims)
     centers = kmeans.cluster_centers_
     labels = kmeans.labels_
 
-    return labels, centers
+    return labels, centers, kmeans
 
 
 def print_clusters(labels, cluster_truth, n_clusters):
