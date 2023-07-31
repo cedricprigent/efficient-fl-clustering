@@ -65,7 +65,7 @@ class EncodingClient(fl.client.NumPyClient):
 
         print(f"Cluster {config['cluster_id']} EVAL model performance - accuracy: {accuracy}, loss: {loss} | transform {args.transform}")
 
-        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+        return float(loss), len(self.valloader), {"accuracy": float(accuracy), "cluster_id": config['cluster_id']}
 
 
 

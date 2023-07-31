@@ -137,9 +137,7 @@ class TestEncoding(TensorboardStrategy):
         ]
 
         ordered_indices = np.array(client_numbers).argsort()
-        weights_results = np.array(weights_results)[ordered_indices]
-        print(client_numbers)
-        print(np.array(cluster_truth)[ordered_indices])
+        weights_results = np.array(weights_results, dtype=object)[ordered_indices]
 
         # Group local model weights per clusters
         weights_per_cluster = [[] for i in range(self.n_clusters)]
@@ -219,3 +217,29 @@ class TestEncoding(TensorboardStrategy):
 
         # Return client/config pairs
         return eval_configurations
+
+
+    def aggregate_evaluate(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, EvaluateRes]],
+        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
+    ) -> Tuple[Optional[float], Dict[str, Scalar]]:
+
+        loss_aggregated, metrics_aggregated = super().aggregate_evaluate(
+            server_round=server_round, 
+            results=results, 
+            failures=failures
+        )
+
+        eval_metrics = [(res.num_examples, res.metrics) for _, res in results]
+        accs = [metrics["accuracy"] for _, metrics in eval_metrics]
+
+        accs_per_cluster = [[] for i in range(self.n_clusters)]
+        for _, metrics in eval_metrics:
+            accs_per_cluster[metrics['cluster_id']].append(metrics['accuracy'])
+
+        for i, accs in enumerate(accs_per_cluster):
+            self.writer.add_scalar(f"Cluster/federated_accuracy_C{i}", np.average(accs), server_round)
+
+        return loss_aggregated, metrics_aggregated

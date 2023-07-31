@@ -1,5 +1,6 @@
 dataset: mnist
 strategy: testencoding
+client: EncodingClient
 model: regression
 
 num_rounds: 50

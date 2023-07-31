@@ -59,15 +59,16 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
 
     def evaluate(self, server_round, parameters):
         """Evaluate model parameters using an evaluation function."""
-        loss, metrics = super().evaluate(server_round, parameters)
+        #loss, metrics = super().evaluate(server_round, parameters)
 
         # Write scalars
-        self.writer.add_scalar("Training/test_c_loss", loss, server_round)
-        self.writer.add_scalar("Training/test_accuracy", metrics["accuracy"], server_round)
+        #self.writer.add_scalar("Training/test_c_loss", loss, server_round)
+        #self.writer.add_scalar("Training/test_accuracy", metrics["accuracy"], server_round)
         self.writer.add_scalar("System/bytes_rcv", (psutil.net_io_counters().bytes_recv - self.bytes_recv_init_counter) / 1000000, server_round)
         self.writer.add_scalar("System/bytes_sent", (psutil.net_io_counters().bytes_sent - self.bytes_sent_init_counter) / 1000000, server_round)
 
-        return loss, metrics
+        return None
+        #return loss, metrics
 
 
     def aggregate_evaluate(
@@ -95,5 +96,9 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         eval_metrics = [(res.num_examples, res.metrics) for _, res in results]
         accs = [metrics["accuracy"] for _, metrics in eval_metrics]
         metrics_aggregated["accuracy"] = np.average(accs)
+        
+        # Write scalars
+        self.writer.add_scalar("Training/federated_accuracy", metrics_aggregated["accuracy"], server_round)
+        self.writer.add_scalar("Training/federated_std", np.std(accs), server_round)
 
         return loss_aggregated, metrics_aggregated

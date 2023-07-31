@@ -63,6 +63,7 @@
                     --model {{ model }}
                     --num {{ item }}
                     --transform {{ transform[item % n_transforms] }}
+                    --client {{ client }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"
@@ -98,6 +99,7 @@
                   --model {{ model }}
                   --num {{ (n_client_per_node) * (loop.index - 1) + item + n_client_server_node }}
                   --transform {{ transform[item % n_transforms] }}
+                  --client {{ client }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"
