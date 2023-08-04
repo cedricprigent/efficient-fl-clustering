@@ -129,7 +129,6 @@ def test_standard_classifier(model, test_dataloader, device=DEVICE):
             # 1. Forward pass
             c_out = model(X)
 
-            flat_data = X.view(-1, flat_shape[0]).to(device)
             y_onehot = F.one_hot(y, cond_shape).to(device)
 
             # 2. Loss

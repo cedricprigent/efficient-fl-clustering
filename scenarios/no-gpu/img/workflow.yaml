@@ -13,10 +13,12 @@
 
     - name: Installing docker
       shell: '/grid5000/code/bin/g5k-setup-docker'
-    - name: Building docker image
-      shell: 'docker build /tmp/app/. -f /tmp/app/Dockerfile.nogpu --tag docker-c'
+    - name: Loading docker image
+      shell: 'docker load < /tmp/app/nogpu-docker.tar'
     - name: Running docker image
       shell: 'docker run --network=host --name {{ container_name }} -t -d docker-c'
+    - name: Copy local files to docker container
+      shell: 'docker cp -a /tmp/app/. fl-container:/app/artifacts/'
     - name: Downloading dataset
       shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/dl_dataset.py --dataset {{ dataset }}'
     - name: Generating partitions
@@ -55,12 +57,15 @@
         msg: "Starting FLClient: server at {{ _self.url }}"
     - shell: "{% for thishost in play_hosts %}
                 {% if inventory_hostname==thishost %}
-                    sudo docker exec -t {{ container_name }}
+                    sudo docker exec -t {{ container_name }} 
                     python3 /app/artifacts/client.py
                     --server_address {{ _self.url }}:8080
                     --model {{ model }}
                     --num {{ item }}
                     --transform {{ transform[item % n_transforms] }}
+                    --client {{ client }}
+                    --compression {{ compression }}
+                    --path_to_encoder_weights {{ path_to_encoder_weights }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"
@@ -70,7 +75,6 @@
   finalize:
     - name: Retreiving log files
       shell: "sudo docker cp {{ log_dir }} {{ save_dir }}"
-      when: log_dir.stat.exists and save_dir.stat.exists
     - debug:
         msg: "Stop and remove container"
     - shell: "docker stop {{ container_name }}"
@@ -91,11 +95,15 @@
         msg: "Starting FLClient: server at {{ server.url }}"
     - shell: "{% for thishost in play_hosts %}
                 {% if inventory_hostname==thishost %}
-                  sudo docker exec -t {{ container_name }}
+                  sudo docker exec -t {{ container_name }} 
                   python3 /app/artifacts/client.py
                   --server_address {{ server.url }}:8080
                   --model {{ model }}
                   --num {{ (n_client_per_node) * (loop.index - 1) + item + n_client_server_node }}
+                  --transform {{ transform[item % n_transforms] }}
+                  --client {{ client }}
+                  --compression {{ compression }}
+                  --path_to_encoder_weights {{ path_to_encoder_weights }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"

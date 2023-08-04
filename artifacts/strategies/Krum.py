@@ -29,7 +29,6 @@ class Krum(TensorboardStrategy):
         min_available_clients,
         fraction_fit,
         fraction_evaluate,
-        eval_fn,
         writer,
         on_fit_config_fn,
         num_clients_to_keep=1):
@@ -38,7 +37,6 @@ class Krum(TensorboardStrategy):
                         min_available_clients=min_available_clients, 
                         fraction_fit=fraction_fit,
                         fraction_evaluate=fraction_evaluate,
-                        eval_fn=eval_fn,
                         on_fit_config_fn=on_fit_config_fn,
                         writer=writer)
         

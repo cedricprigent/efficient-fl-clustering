@@ -3,7 +3,7 @@ strategy: testencoding
 client: EncodingClient
 model: regression
 compression: AE
-path_to_encoder_weights: /app/artifacts/pre-trained/mnist
+path_to_encoder_weights: /app/artifacts
 
 num_rounds: 50
 min_available_clients: 30

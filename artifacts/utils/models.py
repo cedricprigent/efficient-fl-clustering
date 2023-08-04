@@ -127,13 +127,41 @@ class Net(nn.Module):
         self.load_state_dict(state_dict, strict=True)
 
 
-class AutoEncoder(torch.nn.Module):
+class LeNet_5_CIFAR(nn.Module):
     def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(400, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return self.softmax(x)
+
+    def set_weights(self, weights):
+        """Set model weights from a list of NumPy ndarrays."""
+        state_dict = OrderedDict(
+            {k: torch.tensor(v) for k, v in zip(self.state_dict().keys(), weights)}
+        )
+        self.load_state_dict(state_dict, strict=True)
+
+
+class AutoEncoder(torch.nn.Module):
+    def __init__(self, n_channels, im_size):
         super().__init__()
 
         self.encoder = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(28*28, 400),
+            torch.nn.Linear(n_channels * im_size * im_size, 400),
             torch.nn.ReLU(),
             torch.nn.Linear(400, z_dim)
         )
@@ -141,12 +169,12 @@ class AutoEncoder(torch.nn.Module):
         self.decoder = torch.nn.Sequential(
             torch.nn.Linear(z_dim, 400),
             torch.nn.ReLU(),
-            torch.nn.Linear(400, 28*28),
+            torch.nn.Linear(400, n_channels * im_size * im_size),
             torch.nn.Sigmoid()
         )
     def forward(self, x):
         encoded = self.encoder(x)
-        decoded = torch.reshape(self.decoder(encoded), (-1, 1, 28, 28))
+        decoded = torch.reshape(self.decoder(encoded), (-1, n_channels, im_size, im_size))
         return decoded
 
 
@@ -173,3 +201,34 @@ class EncoderNet(nn.Module):
 
     def get_encoding(self, x):
         return self.forward(x)
+
+
+class EncoderNet_Cifar(nn.Module):
+    def __init__(self):
+        super(EncoderNet_Cifar, self).__init__()
+        self.convnet = nn.Sequential(nn.Conv2d(3, 64, 6), nn.PReLU(),
+                                     nn.MaxPool2d(2, stride=2),
+                                     nn.Conv2d(64, 128, 6), nn.PReLU(),
+                                     nn.MaxPool2d(2, stride=2))
+
+        self.fc = nn.Sequential(nn.Linear(128 * 4 * 4, 256),
+                                nn.ReLU(),
+                                nn.Linear(256, 256),
+                                nn.ReLU(),
+                                nn.Linear(256, 20)
+                                )
+
+    def forward(self, x):
+        output = self.convnet(x)
+        # print(f'after convnet' + str(output.size()))
+        output = output.view(output.size()[0], -1)
+        output = self.fc(output)
+        return output
+
+    def get_encoding(self, x):
+        return self.forward(x)
+
+
+def weight_reset(m):
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+        m.reset_parameters()

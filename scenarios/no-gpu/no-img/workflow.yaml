@@ -11,19 +11,12 @@
         dest: '/tmp/app/'
       delegate_to: "{{ inventory_hostname }}"
 
-    - name: Checking Docker Installation
-      command: docker --version
-      register: docker_valid
-      ignore_errors: yes
     - name: Installing docker
-      shell: '/grid5000/code/bin/g5k-setup-nvidia-docker'
-      when: docker_valid.failed
-    - name: Loading docker image
-      shell: 'docker load < /tmp/app/gpu-docker.tar'
+      shell: '/grid5000/code/bin/g5k-setup-docker'
+    - name: Building docker image
+      shell: 'docker build /tmp/app/. -f /tmp/app/Dockerfile.nogpu --tag docker-c'
     - name: Running docker image
-      shell: 'docker run --network=host --gpus all --name {{ container_name }} -t -d gpu-docker'
-    - name: Copy local files to docker container
-      shell: 'docker cp -a /tmp/app/. fl-container:/app/artifacts/'
+      shell: 'docker run --network=host --name {{ container_name }} -t -d docker-c'
     - name: Downloading dataset
       shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/dl_dataset.py --dataset {{ dataset }}'
     - name: Generating partitions
@@ -55,15 +48,14 @@
               --min_fit_clients {{ min_fit_clients }}
               --fraction_fit {{ fraction_fit }}
               --local_epochs {{ local_epochs }}
-              --n_clusters {{ n_transforms }}
-              --dataset {{ dataset }}'
+              --n_clusters {{ n_transforms }}'
       async: "{{ async }}"
       poll: 0
     - debug:
         msg: "Starting FLClient: server at {{ _self.url }}"
     - shell: "{% for thishost in play_hosts %}
                 {% if inventory_hostname==thishost %}
-                    sudo docker exec -t -e CUDA_VISIBLE_DEVICES={{ item // (n_client_server_node // 2) }} {{ container_name }} 
+                    sudo docker exec -t {{ container_name }} 
                     python3 /app/artifacts/client.py
                     --server_address {{ _self.url }}:8080
                     --model {{ model }}
@@ -72,7 +64,6 @@
                     --client {{ client }}
                     --compression {{ compression }}
                     --path_to_encoder_weights {{ path_to_encoder_weights }}
-                    --dataset {{ dataset }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"
@@ -102,7 +93,7 @@
         msg: "Starting FLClient: server at {{ server.url }}"
     - shell: "{% for thishost in play_hosts %}
                 {% if inventory_hostname==thishost %}
-                  sudo docker exec -t -e CUDA_VISIBLE_DEVICES={{ item // (n_client_per_node // 2) }} {{ container_name }} 
+                  sudo docker exec -t {{ container_name }} 
                   python3 /app/artifacts/client.py
                   --server_address {{ server.url }}:8080
                   --model {{ model }}
@@ -111,7 +102,6 @@
                   --client {{ client }}
                   --compression {{ compression }}
                   --path_to_encoder_weights {{ path_to_encoder_weights }}
-                  --dataset {{ dataset }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"

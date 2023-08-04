@@ -224,10 +224,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load train & test sets
-    trainset = MNIST(
+    if args.dataset == "mnist":
+        dataset_inst = MNIST
+    elif args.dataset == "cifar10":
+        dataset_inst = CIFAR10
+    else:
+        raise NotImplementedError
+    
+    trainset = dataset_inst(
         root="/tmp/app/data", train=True, download=True
     )
-    testset = MNIST(
+    testset = dataset_inst(
         root="/tmp/app/data", train=False, download=False
     )
 

@@ -4,7 +4,6 @@ import torch
 import numpy as np
 
 import flwr as fl
-import psutil
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.common import (
@@ -35,25 +34,22 @@ class TestEncoding(TensorboardStrategy):
         min_available_clients,
         fraction_fit,
         fraction_evaluate,
-        eval_fn,
         writer,
         on_fit_config_fn,
         n_clusters,
-        model):
+        model_init):
 
         super().__init__(min_fit_clients=min_fit_clients, 
                         min_available_clients=min_available_clients, 
                         fraction_fit=fraction_fit,
                         fraction_evaluate=fraction_evaluate,
-                        eval_fn=eval_fn,
                         on_fit_config_fn=on_fit_config_fn,
                         writer=writer)
         
         self.writer = writer
         self.n_clusters = n_clusters
-        #self.models = [copy.deepcopy(model) for _ in range(self.n_clusters)]
 
-        param = ndarrays_to_parameters([val.cpu().numpy() for _, val in model.state_dict().items()])
+        param = ndarrays_to_parameters([val.cpu().numpy() for _, val in model_init.items()])
         self.parameters = [param for i in range(self.n_clusters)]
         self.kmeans = None
 
