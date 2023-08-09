@@ -12,6 +12,7 @@ import copy
 import os
 import time
 import json
+import traceback
 
 from utils.datasets import load_data
 from utils.models import Net, LeNet_5_CIFAR, LogisticRegression, weight_reset
@@ -23,6 +24,7 @@ from strategies.TensorboardStrategy import TensorboardStrategy
 from strategies.FedMedian import FedMedian
 from strategies.Krum import Krum
 from strategies.TestEncoding import TestEncoding
+from strategies.IFCA import IFCA
 
 torch.manual_seed(0)
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
@@ -42,7 +44,11 @@ def fit_config(server_round: int):
 
 
 if __name__ == "__main__":
-	logging.basicConfig(filename="log_traces.log", level=logging.INFO)
+	error_handler = logging.FileHandler("error.log")
+	error_logger = logging.getLogger("error_logger")
+	error_logger.setLevel(level=logging.ERROR)
+	error_logger.addHandler(error_handler)
+
 	parser = argparse.ArgumentParser()
 	parser.add_argument(
 		"--strategy", type=str, default="testencoding", help="Set of strategies: fedavg, testencoding, fedmedian, krum"
@@ -75,6 +81,9 @@ if __name__ == "__main__":
 		"--dataset", type=str, required=False, default="mnist", help="mnist, cifar10"
 	)
 	parser.add_argument(
+		"--compression", type=str, required=False, default='Undifined', help="Triplet, AE, StyleExtraction"
+	)
+	parser.add_argument(
 		"--config_file", help="Path to json config file"
 	)
 
@@ -105,7 +114,7 @@ if __name__ == "__main__":
 			try:
 				raise ValueError('Invalid model name')
 			except ValueError as err:
-				logging.info('Invalid model name')
+				error_logger.info('Invalid model name')
 				raise
 
 	if args['strategy'] == "testencoding":
@@ -113,13 +122,16 @@ if __name__ == "__main__":
 		del model
 	elif args['strategy'] == "ifca":
 		model_init = []
-		for _ in range(n_clusters):
+		for _ in range(args["n_clusters"]):
 			model.apply(weight_reset)
-			model_init.append(model.state_dict())
+			model_init.append(copy.deepcopy(model.state_dict()))
 		del model
 
 	# SummaryWriter
-	writer = SummaryWriter(log_dir=f"./fl_logs/{args['strategy']}", filename_suffix=f"{args['strategy']}")
+	if args['strategy'] == 'testencoding':
+		writer = SummaryWriter(log_dir=f"./fl_logs/{args['strategy']}-{args['compression']}", filename_suffix=f"{args['strategy']}")
+	else:
+		writer = SummaryWriter(log_dir=f"./fl_logs/{args['strategy']}", filename_suffix=f"{args['strategy']}")
 
 	writer.add_scalar("hp/batch_size", batch_size)
 	writer.add_scalar("hp/num_rounds", args['num_rounds'])
@@ -142,6 +154,17 @@ if __name__ == "__main__":
 		)
 	elif args['strategy'] == "testencoding":
 		strategy = TestEncoding(
+			min_fit_clients=args["min_fit_clients"],
+			min_available_clients=args["min_available_clients"],
+			fraction_fit=args["fraction_fit"],
+			fraction_evaluate=fraction_eval,
+			writer=writer,
+			on_fit_config_fn=fit_config,
+			n_clusters=args["n_clusters"],
+			model_init=model_init
+		)
+	elif args['strategy'] == "ifca":
+		strategy = IFCA(
 			min_fit_clients=args["min_fit_clients"],
 			min_available_clients=args["min_available_clients"],
 			fraction_fit=args["fraction_fit"],
@@ -180,9 +203,13 @@ if __name__ == "__main__":
 	else:
 		server = Server(client_manager=SimpleClientManager(), strategy=strategy)
 
-	fl.server.start_server(
-		server_address=args["server_address"],
-		config=server_config,
-		strategy=strategy,
-		server=server
-	)
+	try:
+		fl.server.start_server(
+			server_address=args["server_address"],
+			config=server_config,
+			strategy=strategy,
+			server=server
+		)
+	except Exception as e:
+		error_logger.error(traceback.format_exc())
+		raise

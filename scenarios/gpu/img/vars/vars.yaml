@@ -1,21 +1,21 @@
-dataset: mnist
+dataset: cifar10
 strategy: testencoding
 client: EncodingClient
-model: regression
-compression: AE
-path_to_encoder_weights: /app/artifacts/pre-trained/mnist
+model: cnn
+compression: Triplet
+path_to_encoder_weights: /app/artifacts/pre-trained/cifar10
 
 num_rounds: 50
-min_available_clients: 30
+min_available_clients: 20
 min_fit_clients: 20
 fraction_fit: 0.5
 local_epochs: 1
-transform: ['none', 'rotate90', 'rotate180', 'rotate270']
-n_transforms: 4
+transform: ['none', 'label_flip']
+n_transforms: 2
 
-n_client_server_node: 15
-n_client_per_node: 15
-n_part: 100
+n_client_server_node: 20
+n_client_per_node: 0
+n_part: 20
 alpha: 10
 
 async: 7200

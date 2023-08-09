@@ -56,7 +56,8 @@
               --fraction_fit {{ fraction_fit }}
               --local_epochs {{ local_epochs }}
               --n_clusters {{ n_transforms }}
-              --dataset {{ dataset }}'
+              --dataset {{ dataset }}
+              --compression {{ compression }}'
       async: "{{ async }}"
       poll: 0
     - debug:

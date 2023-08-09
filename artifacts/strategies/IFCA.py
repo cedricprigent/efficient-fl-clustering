@@ -27,7 +27,7 @@ from utils.clustering_fn import make_clusters, print_clusters, compute_clusterin
 
 import copy
 
-class TestEncoding(TensorboardStrategy):
+class IFCA(TensorboardStrategy):
     def __init__(
         self,
         min_fit_clients,
@@ -45,17 +45,21 @@ class TestEncoding(TensorboardStrategy):
                         fraction_evaluate=fraction_evaluate,
                         on_fit_config_fn=on_fit_config_fn,
                         writer=writer)
-
+        
         self.writer = writer
         self.n_clusters = n_clusters
-        self.min_fit_clients = min_fit_clients
 
-        param = ndarrays_to_parameters([val.cpu().numpy() for _, val in model_init.items()])
-        self.parameters = [param for i in range(self.n_clusters)]
+        self.parameters = []
+        for m_init in model_init:
+            for _, val in m_init.items():
+                self.parameters.append(val.cpu().numpy())
+        self.param_size = len(self.parameters) // n_clusters
+        self.parameters = ndarrays_to_parameters(self.parameters)
+        
         self.kmeans = None
 
     def __repr__(self) -> str:
-        return "TestEncoding"
+        return "IFCA"
 
 
     def configure_fit(
@@ -71,37 +75,19 @@ class TestEncoding(TensorboardStrategy):
             # Custom fit config function provided
             config = self.on_fit_config_fn(server_round)
 
-        if len(parameters.tensors) == 0:
-            # Sample clients
-            sample_size, min_num_clients = self.num_fit_clients(
-                client_manager.num_available()
-            )
-            self.clients = client_manager.sample(
-                num_clients=sample_size, min_num_clients=min_num_clients
-            )
+        # Sample clients
+        sample_size, min_num_clients = self.num_fit_clients(
+            client_manager.num_available()
+        )
+        self.clients = client_manager.sample(
+            num_clients=sample_size, min_num_clients=min_num_clients
+        )
 
-            # Request low dimensional representation of client data
-            config["task"] = "compute_low_dim"
-            print(config)
-
-            fit_configurations = []
-            for i, client in enumerate(self.clients):
-                config["client_number"] = i
-                fit_configurations.append((client, FitIns(parameters, copy.deepcopy(config))))
-        else:
-            # Request local training
-            config["task"] = "local_training"
-
-            for i, label in enumerate(self.cluster_labels):
-                print(f"Assigning model: {label} to client {i}")
-            print(config)
-
-            # Assigning model parameters wrt client clusters
-            fit_configurations = []
-            for i, client in enumerate(self.clients):
-                config["client_number"] = i
-                fit_configurations.append((client, FitIns(self.parameters[self.cluster_labels[i]], copy.deepcopy(config))))
-
+        fit_configurations = []
+        for i, client in enumerate(self.clients):
+            config["client_number"] = i
+            config["n_clusters"] = self.n_clusters
+            fit_configurations.append((client, FitIns(self.parameters, copy.deepcopy(config))))
 
         # Return client/config pairs
         return fit_configurations
@@ -129,63 +115,43 @@ class TestEncoding(TensorboardStrategy):
         client_numbers = [
             fit_res.metrics["client_number"] for _, fit_res in results
         ]
+        cluster_labels = [
+            fit_res.metrics["cluster_id"] for _, fit_res in results
+        ]
         cluster_truth = [
             fit_res.metrics["transform"] for _, fit_res in results
         ]
 
         ordered_indices = np.array(client_numbers).argsort()
         weights_results = np.array(weights_results, dtype=object)[ordered_indices]
+        self.cluster_labels = np.array(cluster_labels, dtype=object)[ordered_indices]
+        self.cluster_truth = np.array(cluster_truth, dtype=object)[ordered_indices]
 
         # Group local model weights per clusters
         weights_per_cluster = [[] for i in range(self.n_clusters)]
-        for client_number, label in enumerate(self.cluster_labels):
-            weights_per_cluster[label].append(weights_results[client_number])
+        for i, cluster_label in enumerate(self.cluster_labels):
+            weights_per_cluster[cluster_label].append(weights_results[i])
 
         # Compute global update for each cluster
-        for i, weights in enumerate(weights_per_cluster):
-            if len(weights) == 0:
-                continue
-            self.parameters[i] = ndarrays_to_parameters(aggregate(weights))
+        parameters_aggs = []
+        for i in range(self.n_clusters):
+            # # If no results for a given model, keep the previous model weights
+            if len(weights_per_cluster[i]) == 0:
+                parameters_aggs.append(parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)])
+            else:
+                parameters_aggs.append(aggregate(weights_per_cluster[i]))
+        
+        self.parameters = []
+        for params in parameters_aggs:
+            for val in params:
+                self.parameters.append(val)
+        
+        self.parameters = ndarrays_to_parameters(self.parameters)
             
         # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}
         
-        return self.parameters[0], metrics_aggregated
-
-
-    def build_clusters(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-
-        # Extract local data compression from results
-        low_dims = [
-            parameters_to_ndarrays(fit_res.parameters) for _, fit_res in results
-        ]
-        low_dims = [np.array(sample).flatten() for sample in low_dims]
-
-        cluster_truth = [
-            fit_res.metrics["transform"] for _, fit_res in results
-        ]
-        client_numbers = [
-            fit_res.metrics["client_number"] for _, fit_res in results
-        ]
-
-        ordered_indices = np.array(client_numbers).argsort()
-        self.cluster_truth = np.array(cluster_truth)[ordered_indices]
-        low_dims = np.array(low_dims, dtype=object)[ordered_indices]
-        print(low_dims.shape)
-
-        # Building clusters
-        if self.kmeans is None:
-            self.cluster_labels, self.cluster_centers, self.kmeans = make_clusters(low_dims, n_clusters=self.n_clusters, n_clients=self.min_fit_clients)
-        else:
-            self.cluster_labels, self.cluster_centers, self.kmeans = make_clusters(low_dims, n_clusters=self.n_clusters, kmeans=self.kmeans, n_clients=self.min_fit_clients)
-
-        print_clusters(self.cluster_labels, self.cluster_truth, n_clusters=self.n_clusters)
-
+        return self.parameters, metrics_aggregated
 
 
     def set_model_parameters(self, model, parameters):
@@ -204,9 +170,12 @@ class TestEncoding(TensorboardStrategy):
 
         # Assigning model parameters wrt client clusters
         eval_configurations = []
+        params = parameters_to_ndarrays(self.parameters)
         for i, client in enumerate(self.clients):
-            config = {"cluster_id": int(self.cluster_labels[i])}
-            eval_configurations.append((client, EvaluateIns(self.parameters[self.cluster_labels[i]], config)))
+            cluster_id = self.cluster_labels[i]
+            config = {"cluster_id": cluster_id}
+            cluster_params = params[self.param_size*cluster_id : self.param_size*(cluster_id+1)]
+            eval_configurations.append((client, EvaluateIns(ndarrays_to_parameters(cluster_params), config)))
 
         # Return client/config pairs
         return eval_configurations
