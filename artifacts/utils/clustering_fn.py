@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import MiniBatchKMeans, KMeans
+from sklearn.metrics import silhouette_score
 from sklearn.metrics.cluster import adjusted_rand_score
 import logging
 from utils.style_extraction import StyleExtractor
@@ -66,7 +67,10 @@ def compute_low_dims_per_class(net, dataloader, output_size, device, style_extra
     return ld
 
 
-def make_clusters(low_dims, n_clusters, n_clients, kmeans=None):
+def make_clusters(low_dims, n_clusters, n_clients, kmeans=None, find_optimal=False):
+    if find_optimal:
+        optim_clusters = find_optimal_clustering(low_dims, n_clusters)
+        print("Optimal number of clusters: ", optim_clusters)
     if kmeans is None:
         kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
     else:
@@ -75,6 +79,20 @@ def make_clusters(low_dims, n_clusters, n_clients, kmeans=None):
     labels = kmeans.labels_
 
     return labels, centers, kmeans
+
+
+def find_optimal_clustering(X, max_clusters):
+    optimal_number = 0
+    optimal_silhouette = -1
+    for i in range(2, max_clusters+1):
+        kmeans = KMeans(n_clusters=i)
+        cluster_labels = kmeans.fit_predict(X)
+        score = silhouette_score(X, cluster_labels)
+        print(f"n_clusters: {i} - score: {score}")
+        if score > optimal_silhouette:
+            optimal_number = i
+            optimal_silhouette = score
+    return optimal_number
 
 
 def print_clusters(labels, cluster_truth, n_clusters):

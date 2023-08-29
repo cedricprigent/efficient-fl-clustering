@@ -10,9 +10,10 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import numpy as np
+import random
 
 from utils.datasets import load_partition
-from utils.models import Net, LeNet_5_CIFAR, LogisticRegression, AutoEncoder, EncoderNet, EncoderNet_Cifar
+from utils.models import Net, LeNet_5_CIFAR, ResNet9, LogisticRegression, AutoEncoder, EncoderNet, EncoderNet_Cifar
 from utils.partition_data import Partition
 from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
 from utils.transforms import Rotate, LabelFlip, Invert, Equalize
@@ -25,25 +26,67 @@ DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 64
 
 
-class EncodingClient(fl.client.NumPyClient):
-    def __init__(self, model, trainloader, valloader):
+class StandardClient(fl.client.NumPyClient):
+    def __init__(self, model, trainloader=None, valloader=None, sim=True):
         self.model = model
-        self.trainloader = trainloader
-        self.valloader = valloader
+        self.sim = sim
+        if not sim:
+            self.trainloader = trainloader
+            self.valloader = valloader
 
     def get_parameters(self, config=None):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
     def set_parameters(self, parameters):
         params_dict = zip(self.model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+        state_dict = OrderedDict({k: torch.from_numpy(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters, config):
+        if self.sim:
+            self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
+
+        # local training
+        self.set_parameters(parameters)
+        if args["model"] == 'cnn':
+            train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=args)
+        elif args["model"] == 'regression':
+            train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=args)
+
+        params = self.get_parameters()
+
+        return params, len(self.trainloader), {"transform": str(args["transform"])}
+
+    def evaluate(self, parameters, config):
+        self.set_parameters(parameters)
+        if args["model"] == 'cnn':
+            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
+        elif args["model"] == 'regression':
+            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+
+        print(f"EVAL model performance - accuracy: {accuracy}, loss: {loss}")
+
+        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
+    def load_partition(self, partition, transform_instruction):
+        print(f"Loading partition {partition} with transform {transform_instruction}")
+        transform, target_transform = load_transform(transform_instruction)
+        self.trainloader, self.valloader, _ = load_partition(partition, batch_size, transform=transform, target_transform=target_transform)
+
+
+class EncodingClient(StandardClient):
+    def __init__(self, model, trainloader=None, valloader=None, sim=True):
+        super(EncodingClient, self).__init__(model, trainloader, valloader, sim)
+
+    def fit(self, parameters, config):
         if config["task"] == "compute_low_dim":
+            # load partition to use
+            if self.sim:
+                self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
+            
             # compressing local data
             print("CLIENT NUM: ", config["client_number"])
-            sample_flat_dim = trainloader.dataset[0][0].flatten().size()[0]
+            sample_flat_dim = self.trainloader.dataset[0][0].flatten().size()[0]
             ld = compute_low_dims_per_class(encoder, 
                 self.trainloader, 
                 output_size=z_dim, 
@@ -65,6 +108,7 @@ class EncodingClient(fl.client.NumPyClient):
 
             return params, len(self.trainloader), {"transform": str(args["transform"]), "client_number": config["client_number"]}
 
+
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
         if args["model"] == 'cnn':
@@ -77,23 +121,20 @@ class EncodingClient(fl.client.NumPyClient):
         return float(loss), len(self.valloader), {"accuracy": float(accuracy), "cluster_id": config['cluster_id']}
 
 
-class IFCAClient(fl.client.NumPyClient):
-    def __init__(self, model, trainloader, valloader):
-        self.model = model
-        self.trainloader = trainloader
-        self.valloader = valloader
 
-    def get_parameters(self, config=None):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
-
-    def set_parameters(self, parameters):
-        params_dict = zip(self.model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-        self.model.load_state_dict(state_dict, strict=True)
+class IFCAClient(StandardClient):
+    def __init__(self, model, trainloader=None, valloader=None, sim=True):
+        super(IFCAClient, self).__init__(model, trainloader, valloader, sim)
 
     def fit(self, parameters, config):
+        if self.sim:
+            self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
+
         # Estimating cluster identity
-        cluster_id = self.estimate_cluster_identity(parameters, n_clusters=config["n_clusters"])
+        if config["round"] == 1:
+            cluster_id = random.randint(0, config["n_clusters"]-1)
+        else:
+            cluster_id = self.estimate_cluster_identity(parameters, n_clusters=config["n_clusters"])
 
         # Assigning corresponding model for local training
         print("Assigning client to cluster ", cluster_id)
@@ -119,7 +160,6 @@ class IFCAClient(fl.client.NumPyClient):
 
         return float(loss), len(self.valloader), {"accuracy": float(accuracy), "cluster_id": config['cluster_id']}
 
-
     def estimate_cluster_identity(self, parameters, n_clusters=2):
         id = 0
         param_size = len(parameters) // n_clusters
@@ -139,43 +179,36 @@ class IFCAClient(fl.client.NumPyClient):
 
 
 
-class StandardClient(fl.client.NumPyClient):
-    def __init__(self, model, trainloader, valloader):
-        self.model = model
-        self.trainloader = trainloader
-        self.valloader = valloader
+def load_transform(transform_instruction):
+    target_transform=None
+    transform=None
+    if transform_instruction == "solarize":
+        transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])
+    elif transform_instruction == "invert":
+        transform = transforms.Compose([Invert(), transforms.ToTensor()])
+    elif transform_instruction == "equalize":
+        transform = transforms.Compose([Equalize(), transforms.ToTensor()])
+    elif transform_instruction == "elastic":
+        transform = transforms.Compose([transforms.ElasticTransform(alpha=100.0), transforms.ToTensor()])
+    elif transform_instruction == "rotate90":
+        transform = transforms.Compose([Rotate(90), transforms.ToTensor()])
+    elif transform_instruction == "rotate180":
+        transform = transforms.Compose([Rotate(180), transforms.ToTensor()])
+    elif transform_instruction == "rotate270":
+        transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
+    else:
+        transform = transforms.Compose([transforms.ToTensor()])
+        
+    if args["transform"] == "label_flip_1":
+        target_transform = LabelFlip(1)
+    elif args["transform"] == "label_flip_2":
+        target_transform = LabelFlip(2)
+    elif args["transform"] == "label_flip_3":
+        target_transform = LabelFlip(3)
+    elif args["transform"] == "label_flip_4":
+        target_transform = LabelFlip(4)
 
-    def get_parameters(self, config=None):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
-
-    def set_parameters(self, parameters):
-        params_dict = zip(self.model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-        self.model.load_state_dict(state_dict, strict=True)
-
-    def fit(self, parameters, config):
-        # local training
-        self.set_parameters(parameters)
-        if args["model"] == 'cnn':
-            train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=args)
-        elif args["model"] == 'regression':
-            train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=args)
-
-        params = self.get_parameters()
-
-        return params, len(self.trainloader), {"transform": str(args["transform"])}
-
-    def evaluate(self, parameters, config):
-        self.set_parameters(parameters)
-        if args["model"] == 'cnn':
-            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
-        elif args["model"] == 'regression':
-            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
-
-        print(f"EVAL model performance - accuracy: {accuracy}, loss: {loss}")
-
-        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
-
+    return transform, target_transform
 
 
 if __name__ == "__main__":
@@ -241,6 +274,8 @@ if __name__ == "__main__":
             model = Net().to(DEVICE)
         elif args["dataset"] == "cifar10":
             model = LeNet_5_CIFAR().to(DEVICE)
+    elif args["model"] == "resnet9":
+        model = ResNet9().to('cpu')
     else:
         try:
             raise ValueError('Invalid model name')
@@ -264,35 +299,12 @@ if __name__ == "__main__":
     else:
         raise NotImplementedError
 
-    target_transform=None
-    if args["transform"] == "solarize":
-        transform = transforms.Compose([transforms.RandomSolarize(threshold=200.0), transforms.ToTensor()])
-    elif args["transform"] == "invert":
-        transform = transforms.Compose([Invert(), transforms.ToTensor()])
-    elif args["transform"] == "equalize":
-        transform = transforms.Compose([Equalize(), transforms.ToTensor()])
-    elif args["transform"] == "elastic":
-        transform = transforms.Compose([transforms.ElasticTransform(alpha=100.0), transforms.ToTensor()])
-    elif args["transform"] == "rotate90":
-        transform = transforms.Compose([Rotate(90), transforms.ToTensor()])
-    elif args["transform"] == "rotate180":
-        transform = transforms.Compose([Rotate(180), transforms.ToTensor()])
-    elif args["transform"] == "rotate270":
-        transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
+    if args["sim"]:
+        trainloader = None
+        testloader = None
     else:
-        transform = transforms.Compose(
-            [transforms.ToTensor()]
-        )
-    if args["transform"] == "label_flip_1":
-        target_transform = LabelFlip(1)
-    elif args["transform"] == "label_flip_2":
-        target_transform = LabelFlip(2)
-    elif args["transform"] == "label_flip_3":
-        target_transform = LabelFlip(3)
-    elif args["transform"] == "label_flip_4":
-        target_transform = LabelFlip(4)
-
-    trainloader, testloader, _ = load_partition(args["num"], batch_size, transform=transform, target_transform=target_transform)
+        transform, target_transform = load_transform(args["transform"])
+        trainloader, testloader, _ = load_partition(args["num"], batch_size, transform=transform, target_transform=target_transform)
 
     if args["client"] == "EncodingClient":
         client=EncodingClient(

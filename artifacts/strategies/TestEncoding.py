@@ -37,14 +37,19 @@ class TestEncoding(TensorboardStrategy):
         writer,
         on_fit_config_fn,
         n_clusters,
-        model_init):
+        model_init,
+        total_num_clients,
+        transforms,
+        ):
 
         super().__init__(min_fit_clients=min_fit_clients, 
                         min_available_clients=min_available_clients, 
                         fraction_fit=fraction_fit,
                         fraction_evaluate=fraction_evaluate,
                         on_fit_config_fn=on_fit_config_fn,
-                        writer=writer)
+                        writer=writer,
+                        total_num_clients=total_num_clients,
+                        transforms=transforms)
 
         self.writer = writer
         self.n_clusters = n_clusters
@@ -84,10 +89,13 @@ class TestEncoding(TensorboardStrategy):
             config["task"] = "compute_low_dim"
             print(config)
 
+            partitions_conf = self.set_client_partitions(total_num_clients=self.total_num_clients, sample_size=sample_size, server_round=server_round)
+
             fit_configurations = []
-            for i, client in enumerate(self.clients):
+            for i, (client, partition_conf) in enumerate(zip(self.clients, partitions_conf)):
                 config["client_number"] = i
-                fit_configurations.append((client, FitIns(parameters, copy.deepcopy(config))))
+                partition_conf.update(config)
+                fit_configurations.append((client, FitIns(parameters, copy.deepcopy(partition_conf))))
         else:
             # Request local training
             config["task"] = "local_training"

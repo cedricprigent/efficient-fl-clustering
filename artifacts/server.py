@@ -15,7 +15,7 @@ import json
 import traceback
 
 from utils.datasets import load_data
-from utils.models import Net, LeNet_5_CIFAR, LogisticRegression, weight_reset
+from utils.models import Net, LeNet_5_CIFAR, ResNet9, LogisticRegression, weight_reset
 from utils.function import test_standard_classifier, test_regression
 from utils.app import Clustering_Server, Server
 from flwr.server.client_manager import SimpleClientManager
@@ -110,6 +110,8 @@ if __name__ == "__main__":
 				model = Net().to('cpu')
 			elif args["dataset"] == "cifar10":
 				model = LeNet_5_CIFAR().to('cpu')
+		elif args["model"] == "resnet9":
+			model = ResNet9().to('cpu')
 		else:
 			try:
 				raise ValueError('Invalid model name')
@@ -151,6 +153,8 @@ if __name__ == "__main__":
 			fraction_evaluate=fraction_eval,
 			writer=writer,
 			on_fit_config_fn=fit_config,
+			total_num_clients=args["total_num_clients"],
+			transforms=args["transforms"]
 		)
 	elif args['strategy'] == "testencoding":
 		strategy = TestEncoding(
@@ -161,7 +165,9 @@ if __name__ == "__main__":
 			writer=writer,
 			on_fit_config_fn=fit_config,
 			n_clusters=args["n_clusters"],
-			model_init=model_init
+			model_init=model_init,
+			total_num_clients=args["total_num_clients"],
+			transforms=args["transforms"]
 		)
 	elif args['strategy'] == "ifca":
 		strategy = IFCA(
@@ -172,7 +178,9 @@ if __name__ == "__main__":
 			writer=writer,
 			on_fit_config_fn=fit_config,
 			n_clusters=args["n_clusters"],
-			model_init=model_init
+			model_init=model_init,
+			total_num_clients=args["total_num_clients"],
+			transforms=args["transforms"]
 		)
 	elif args['strategy'] == "fedmedian":
 		strategy = FedMedian(
