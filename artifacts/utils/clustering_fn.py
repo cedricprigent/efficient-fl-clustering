@@ -17,8 +17,8 @@ def select_samples(dataloader, label, device):
     return samples
 
 
-def split_by_class(dataloader, device):
-    samples = [[] for _ in range(10)]
+def split_by_class(dataloader, n_classes, device):
+    samples = [[] for _ in range(n_classes)]
     for _, (x, y) in enumerate(dataloader):
         for i in range(len(x)):
             samples[y[i].detach().cpu().numpy()].append(x[i].to(device))
@@ -54,10 +54,10 @@ def compute_avg(low_dim):
     return low_dim.mean(0).cpu().detach().numpy()
 
 
-def compute_low_dims_per_class(net, dataloader, output_size, device, style_extraction=False, sample_size=784):
+def compute_low_dims_per_class(net, dataloader, output_size, device, style_extraction=False, sample_size=784, n_classes=10):
     ld = np.array([])
-    class_batches = split_by_class(dataloader, device=device)
-    for class_id in range(10):
+    class_batches = split_by_class(dataloader, n_classes, device=device)
+    for class_id in range(n_classes):
         if style_extraction:
             extractor = StyleExtractor()
             ld = np.append(ld, compute_avg(torch.Tensor(extract_style(class_batches[class_id], extractor, sample_size))))

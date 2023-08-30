@@ -1,0 +1,21 @@
+dataset: 'cifar10'
+strategy: 'testencoding'
+client: 'EncodingClient'
+model: 'cnn'
+compression: 'AE'
+path_to_encoder_weights: '/app/artifacts/pre-trained/cifar10'
+
+num_rounds: 50
+min_available_clients: 20
+min_fit_clients: 20
+fraction_fit: 0.5
+local_epochs: 1
+transform: ['None', 'label_flip_1']
+n_transforms: 2
+
+n_client_server_node: 25
+n_client_per_node: 25
+n_part: 50
+alpha: 10
+
+async: 7200

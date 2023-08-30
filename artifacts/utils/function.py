@@ -9,8 +9,6 @@ import random
 import logging
 
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
-flat_shape = [28*28]
-cond_shape=10
 logging.basicConfig(filename="log_traces.log", level=logging.INFO)
 
 torch.manual_seed(0)
@@ -29,8 +27,9 @@ def train_standard_classifier(model, train_dataloader, config, device=DEVICE, ar
             labels = labels.to(device)
 
             # 1. Forward pass
-            c_out = model(images)                        
-            y_onehot = F.one_hot(labels, cond_shape).to(device)
+            c_out = model(images)
+            dim_y = c_out.shape[1]             
+            y_onehot = F.one_hot(labels, dim_y).to(device)
 
             # 2. Calculate loss
             loss = criterion(c_out, labels)
@@ -128,8 +127,9 @@ def test_standard_classifier(model, test_dataloader, device=DEVICE):
             y = y.to(device)
             # 1. Forward pass
             c_out = model(X)
+            dim_y = c_out.shape[1]
 
-            y_onehot = F.one_hot(y, cond_shape).to(device)
+            y_onehot = F.one_hot(y, dim_y).to(device)
 
             # 2. Loss
             loss = loss_fn_standard_classifier(c_out, y_onehot)

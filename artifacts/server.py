@@ -15,7 +15,7 @@ import json
 import traceback
 
 from utils.datasets import load_data
-from utils.models import Net, LeNet_5_CIFAR, ResNet9, LogisticRegression, weight_reset
+from utils.models import LeNet_5, ResNet9, LogisticRegression, weight_reset
 from utils.function import test_standard_classifier, test_regression
 from utils.app import Clustering_Server, Server
 from flwr.server.client_manager import SimpleClientManager
@@ -84,6 +84,12 @@ if __name__ == "__main__":
 		"--compression", type=str, required=False, default='Undifined', help="Triplet, AE, StyleExtraction"
 	)
 	parser.add_argument(
+		"--total_num_clients", type=int, required=False, default=100, help="Total number of clients/partitions"
+	)
+	parser.add_argument(
+		"--transforms", type=str, required=False, default='None', help="List of transforms separated by a , (e.g., None,label_flip_1)"
+	)
+	parser.add_argument(
 		"--config_file", help="Path to json config file"
 	)
 
@@ -93,23 +99,33 @@ if __name__ == "__main__":
 		with open(args["config_file"], 'rt') as f:
 			json_config = json.load(f)
 		args.update(json_config)
+	else:
+		args["transforms"] = args["transforms"].split(',')
 
 	# Input size
 	if args["dataset"] == "mnist":
-		input_size = 28*28
+		n_channels = 1
+		im_size = 28
+		input_size = n_channels*im_size*im_size
+		n_classes = 10
 	elif args["dataset"] == "cifar10":
-		input_size = 32*32*3
+		n_channels = 3
+		im_size = 32
+		input_size = n_channels*im_size*im_size
+		n_classes = 10
+	elif args["dataset"] == "femnist":
+		n_channels = 1
+		im_size = 28
+		input_size = n_channels*im_size*im_size
+		n_classes = 62
 	
 	
 	# Global Model
 	if args['strategy'] == "testencoding" or args['strategy'] == "ifca":
 		if args["model"] == "regression":
-			model = LogisticRegression(input_size=input_size, num_classes=10).to('cpu')
+			model = LogisticRegression(input_size=input_size, num_classes=n_classes).to('cpu')
 		elif args["model"] == "cnn":
-			if args["dataset"] == "mnist":
-				model = Net().to('cpu')
-			elif args["dataset"] == "cifar10":
-				model = LeNet_5_CIFAR().to('cpu')
+			model = LeNet_5(in_channels=n_channels, num_classes=n_classes).to('cpu')
 		elif args["model"] == "resnet9":
 			model = ResNet9().to('cpu')
 		else:

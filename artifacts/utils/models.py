@@ -126,18 +126,17 @@ class Net(nn.Module):
         )
         self.load_state_dict(state_dict, strict=True)
 
-class LeNet_5_CIFAR(nn.Module):
+class LeNet_5(nn.Module):
 
-    def __init__(self, num_classes=10, grayscale=False):
-        super(LeNet_5_CIFAR, self).__init__()
+    def __init__(self, input_h=28, in_channels=1, num_classes=10):
+        super(LeNet_5, self).__init__()
         
-        self.grayscale = grayscale
-        self.num_classes = num_classes
+        # conv_maxpool_output = (input_h - kernel_size + 1) / 2 
+        features_output_h = int((((input_h - 4)/2) - 4)/2)
+        features_output_size = features_output_h * features_output_h
 
-        if self.grayscale:
-            in_channels = 1
-        else:
-            in_channels = 3
+        self.in_channels = in_channels
+        self.num_classes = num_classes
 
         self.features = nn.Sequential(
             
@@ -150,7 +149,7 @@ class LeNet_5_CIFAR(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(16*5*5*in_channels, 120*in_channels),
+            nn.Linear(16*16*in_channels, 120*in_channels),
             nn.Tanh(),
             nn.Linear(120*in_channels, 84*in_channels),
             nn.Tanh(),

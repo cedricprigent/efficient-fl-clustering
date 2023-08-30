@@ -13,7 +13,7 @@ import numpy as np
 import random
 
 from utils.datasets import load_partition
-from utils.models import Net, LeNet_5_CIFAR, ResNet9, LogisticRegression, AutoEncoder, EncoderNet, EncoderNet_Cifar
+from utils.models import LeNet_5, ResNet9, LogisticRegression, AutoEncoder, EncoderNet, EncoderNet_Cifar
 from utils.partition_data import Partition
 from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
 from utils.transforms import Rotate, LabelFlip, Invert, Equalize
@@ -33,6 +33,7 @@ class StandardClient(fl.client.NumPyClient):
         if not sim:
             self.trainloader = trainloader
             self.valloader = valloader
+            self.transform = args["transform"]
 
     def get_parameters(self, config=None):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -44,6 +45,7 @@ class StandardClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         if self.sim:
+            self.transform = config['transform']
             self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
 
         # local training
@@ -55,7 +57,7 @@ class StandardClient(fl.client.NumPyClient):
 
         params = self.get_parameters()
 
-        return params, len(self.trainloader), {"transform": str(args["transform"])}
+        return params, len(self.trainloader), {"transform": self.transform}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
@@ -82,6 +84,7 @@ class EncodingClient(StandardClient):
         if config["task"] == "compute_low_dim":
             # load partition to use
             if self.sim:
+                self.transform = config['transform']
                 self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
             
             # compressing local data
@@ -92,9 +95,10 @@ class EncodingClient(StandardClient):
                 output_size=z_dim, 
                 device=DEVICE, 
                 style_extraction=style_extraction, 
-                sample_size=sample_flat_dim
+                sample_size=sample_flat_dim,
+                n_classes=n_classes
             )
-            return [np.array(ld)], len(self.trainloader), {"transform": str(args["transform"]), "client_number": config["client_number"]}
+            return [np.array(ld)], len(self.trainloader), {"transform": self.transform, "client_number": config["client_number"]}
         else:
             # local training
             print("CLIENT NUM: ", config["client_number"])
@@ -106,7 +110,7 @@ class EncodingClient(StandardClient):
 
             params = self.get_parameters()
 
-            return params, len(self.trainloader), {"transform": str(args["transform"]), "client_number": config["client_number"]}
+            return params, len(self.trainloader), {"transform": self.transform, "client_number": config["client_number"]}
 
 
     def evaluate(self, parameters, config):
@@ -128,6 +132,7 @@ class IFCAClient(StandardClient):
 
     def fit(self, parameters, config):
         if self.sim:
+            self.transform = config['transform']
             self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
 
         # Estimating cluster identity
@@ -147,7 +152,7 @@ class IFCAClient(StandardClient):
 
         params = self.get_parameters()
 
-        return params, len(self.trainloader), {"transform": str(args["transform"]), "cluster_id": cluster_id, "client_number": config["client_number"]}
+        return params, len(self.trainloader), {"transform": self.transform, "cluster_id": cluster_id, "client_number": config["client_number"]}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
@@ -237,10 +242,16 @@ if __name__ == "__main__":
         "--client", type=str, required=False, default='EncodingClient', help="EncodingClient, StandardClient"
     )
     parser.add_argument(
-        "--compression", type=str, required=False, default='Triplet', help="Triplet, AE, StyleExtraction"
+        "--compression", type=str, required=False, default='AE', help="Triplet, AE, StyleExtraction"
     )
     parser.add_argument(
         "--dataset", type=str, required=False, default="mnist", help="mnist, cifar10"
+    )
+    parser.add_argument(
+        "--sim", action='store_true', default=True
+    )
+    parser.add_argument(
+        "--no-sim", action='store_false', dest='sim'
     )
     parser.add_argument(
         "--config_file", help="Path to json config file"
@@ -260,20 +271,26 @@ if __name__ == "__main__":
         input_size = n_channels*im_size*im_size
         encoder_net = EncoderNet
         z_dim = 2
+        n_classes = 10
     elif args["dataset"] == "cifar10":
         n_channels = 3
         im_size = 32
         input_size = n_channels*im_size*im_size
         encoder_net = EncoderNet_Cifar
         z_dim = 20
+        n_classes = 10
+    elif args["dataset"] == "femnist":
+        n_channels = 1
+        im_size = 28
+        input_size = n_channels*im_size*im_size
+        encoder_net = EncoderNet
+        z_dim = 2
+        n_classes = 62
 
     if args["model"] == "regression":
-        model = LogisticRegression(input_size=input_size, num_classes=10).to(DEVICE)
+        model = LogisticRegression(input_size=input_size, num_classes=n_classes).to(DEVICE)
     elif args["model"] == "cnn":
-        if args["dataset"] == "mnist":
-            model = Net().to(DEVICE)
-        elif args["dataset"] == "cifar10":
-            model = LeNet_5_CIFAR().to(DEVICE)
+        model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to(DEVICE)
     elif args["model"] == "resnet9":
         model = ResNet9().to('cpu')
     else:

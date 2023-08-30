@@ -1,0 +1,26 @@
+# Scenario
+dataset: 'femnist'
+strategy: 'testencoding'
+client: 'EncodingClient'
+model: 'cnn'
+compression: 'AE'
+path_to_encoder_weights: '/app/artifacts/pre-trained/mnist'
+
+# Server args
+num_rounds: 50
+total_num_clients: 1550
+min_available_clients: 20
+min_fit_clients: 20
+fraction_fit: 1
+local_epochs: 1
+n_clusters: 2
+transforms: 'None'
+
+
+transform: ['None', 'label_flip_1']
+
+# Deployment
+n_client_server_node: 25
+n_client_per_node: 25
+
+async: 7200
