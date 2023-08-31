@@ -40,6 +40,7 @@ class TestEncoding(TensorboardStrategy):
         model_init,
         total_num_clients,
         transforms,
+        n_base_layers,
         ):
 
         super().__init__(min_fit_clients=min_fit_clients, 
@@ -54,6 +55,7 @@ class TestEncoding(TensorboardStrategy):
         self.writer = writer
         self.n_clusters = n_clusters
         self.min_fit_clients = min_fit_clients
+        self.n_base_layers = n_base_layers
 
         param = ndarrays_to_parameters([val.cpu().numpy() for _, val in model_init.items()])
         self.parameters = [param for i in range(self.n_clusters)]
@@ -144,16 +146,34 @@ class TestEncoding(TensorboardStrategy):
         ordered_indices = np.array(client_numbers).argsort()
         weights_results = np.array(weights_results, dtype=object)[ordered_indices]
 
-        # Group local model weights per clusters
-        weights_per_cluster = [[] for i in range(self.n_clusters)]
+        # Compute global update of the base layers
+        base_layers = [(param[:self.n_base_layers], n_examples) for param, n_examples in weights_results]
+        base_layers_agg = aggregate(base_layers)
+
+        # Group local model update per clusters
+        personalized_layers = [[] for i in range(self.n_clusters)]
         for client_number, label in enumerate(self.cluster_labels):
-            weights_per_cluster[label].append(weights_results[client_number])
+            personalized_layers[label].append((weights_results[client_number][0][self.n_base_layers:], 
+                                            weights_results[client_number][1]))
 
         # Compute global update for each cluster
-        for i, weights in enumerate(weights_per_cluster):
+        for i, weights in enumerate(personalized_layers):
             if len(weights) == 0:
                 continue
-            self.parameters[i] = ndarrays_to_parameters(aggregate(weights))
+            personalized_layers_agg = aggregate(weights)
+            cluster_weights = base_layers_agg + personalized_layers_agg
+            self.parameters[i] = ndarrays_to_parameters(cluster_weights)
+
+        # # Group local model weights per clusters
+        # weights_per_cluster = [[] for i in range(self.n_clusters)]
+        # for client_number, label in enumerate(self.cluster_labels):
+        #     weights_per_cluster[label].append(weights_results[client_number])
+
+        # # Compute global update for each cluster
+        # for i, weights in enumerate(weights_per_cluster):
+        #     if len(weights) == 0:
+        #         continue
+        #     self.parameters[i] = ndarrays_to_parameters(aggregate(weights))
             
         # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}

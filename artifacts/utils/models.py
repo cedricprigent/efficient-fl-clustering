@@ -140,16 +140,16 @@ class LeNet_5(nn.Module):
 
         self.features = nn.Sequential(
             
-            nn.Conv2d(in_channels, 6*in_channels, kernel_size=5),
+            nn.Conv2d(in_channels, 16*in_channels, kernel_size=5),
             nn.Tanh(),
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(6*in_channels, 16*in_channels, kernel_size=5),
+            nn.Conv2d(16*in_channels, 32*in_channels, kernel_size=5),
             nn.Tanh(),
             nn.MaxPool2d(kernel_size=2)
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(16*16*in_channels, 120*in_channels),
+            nn.Linear(features_output_size*32*in_channels, 120*in_channels),
             nn.Tanh(),
             nn.Linear(120*in_channels, 84*in_channels),
             nn.Tanh(),

@@ -121,6 +121,7 @@ if __name__ == "__main__":
 	
 	
 	# Global Model
+	n_base_layers = 4
 	if args['strategy'] == "testencoding" or args['strategy'] == "ifca":
 		if args["model"] == "regression":
 			model = LogisticRegression(input_size=input_size, num_classes=n_classes).to('cpu')
@@ -183,7 +184,8 @@ if __name__ == "__main__":
 			n_clusters=args["n_clusters"],
 			model_init=model_init,
 			total_num_clients=args["total_num_clients"],
-			transforms=args["transforms"]
+			transforms=args["transforms"],
+			n_base_layers=n_base_layers
 		)
 	elif args['strategy'] == "ifca":
 		strategy = IFCA(
@@ -196,7 +198,8 @@ if __name__ == "__main__":
 			n_clusters=args["n_clusters"],
 			model_init=model_init,
 			total_num_clients=args["total_num_clients"],
-			transforms=args["transforms"]
+			transforms=args["transforms"],
+			n_base_layers=n_base_layers
 		)
 	elif args['strategy'] == "fedmedian":
 		strategy = FedMedian(

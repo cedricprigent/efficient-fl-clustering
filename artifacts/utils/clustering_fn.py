@@ -28,7 +28,7 @@ def split_by_class(dataloader, n_classes, device):
 
 def compute_low_dims(net, batch, output_size, compression="Encoder"):
     if len(batch) == 0:
-        print("Empty class batch - Generating Random Low dim")
+        #print("Empty class batch - Generating Random Low dim")
         return torch.rand(1, output_size)
     else:
         return net(torch.stack(batch))
@@ -36,7 +36,7 @@ def compute_low_dims(net, batch, output_size, compression="Encoder"):
 
 def extract_style(batch, extractor, sample_size):
     if len(batch) == 0:
-        print("Empty class batch - Generating Random Low dim")
+        #print("Empty class batch - Generating Random Low dim")
         if sample_size == 784:
             return torch.rand(1, 25).numpy()
         if sample_size == 3072:

@@ -39,7 +39,9 @@ class IFCA(TensorboardStrategy):
         n_clusters,
         model_init,
         total_num_clients,
-        transforms,):
+        transforms,
+        n_base_layers,
+        ):
 
         super().__init__(min_fit_clients=min_fit_clients, 
                         min_available_clients=min_available_clients, 
@@ -52,6 +54,7 @@ class IFCA(TensorboardStrategy):
         
         self.writer = writer
         self.n_clusters = n_clusters
+        self.n_base_layers = n_base_layers
 
         self.parameters = []
         for m_init in model_init:
@@ -135,19 +138,38 @@ class IFCA(TensorboardStrategy):
         self.cluster_labels = np.array(cluster_labels, dtype=object)[ordered_indices]
         self.cluster_truth = np.array(cluster_truth, dtype=object)[ordered_indices]
 
-        # Group local model weights per clusters
-        weights_per_cluster = [[] for i in range(self.n_clusters)]
-        for i, cluster_label in enumerate(self.cluster_labels):
-            weights_per_cluster[cluster_label].append(weights_results[i])
+        base_layers = [(param[:self.n_base_layers], n_examples) for param, n_examples in weights_results]
+        base_layers_agg = aggregate(base_layers)
+
+        # Group local model update per clusters
+        personalized_layers = [[] for i in range(self.n_clusters)]
+        for client_number, label in enumerate(self.cluster_labels):
+            personalized_layers[label].append((weights_results[client_number][0][self.n_base_layers:], 
+                                            weights_results[client_number][1]))
 
         # Compute global update for each cluster
         parameters_aggs = []
-        for i in range(self.n_clusters):
-            # # If no results for a given model, keep the previous model weights
-            if len(weights_per_cluster[i]) == 0:
-                parameters_aggs.append(parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)])
+        for i, weights in enumerate(personalized_layers):
+            if len(weights) == 0:
+                personalized_layers_agg = parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)][self.n_base_layers:]
             else:
-                parameters_aggs.append(aggregate(weights_per_cluster[i]))
+                personalized_layers_agg = aggregate(weights)
+            cluster_weights = base_layers_agg + personalized_layers_agg
+            parameters_aggs.append(cluster_weights)
+
+        # # Group local model weights per clusters
+        # weights_per_cluster = [[] for i in range(self.n_clusters)]
+        # for i, cluster_label in enumerate(self.cluster_labels):
+        #     weights_per_cluster[cluster_label].append(weights_results[i])
+
+        # # Compute global update for each cluster
+        # parameters_aggs = []
+        # for i in range(self.n_clusters):
+        #     # # If no results for a given model, keep the previous model weights
+        #     if len(weights_per_cluster[i]) == 0:
+        #         parameters_aggs.append(parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)])
+        #     else:
+        #         parameters_aggs.append(aggregate(weights_per_cluster[i]))
         
         self.parameters = []
         for params in parameters_aggs:
