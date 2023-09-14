@@ -26,12 +26,12 @@ def split_by_class(dataloader, n_classes, device):
     return samples
 
 
-def compute_low_dims(net, batch, output_size, compression="Encoder"):
+def compute_low_dims(net, batch, output_size, device):
     if len(batch) == 0:
         #print("Empty class batch - Generating Random Low dim")
-        return torch.rand(1, output_size)
+        return torch.rand(1, output_size).to(device)
     else:
-        return net(torch.stack(batch))
+        return net(torch.stack(batch)).to(device)
 
 
 def extract_style(batch, extractor, sample_size):
@@ -62,7 +62,7 @@ def compute_low_dims_per_class(net, dataloader, output_size, device, style_extra
             extractor = StyleExtractor()
             ld = np.append(ld, compute_avg(torch.Tensor(extract_style(class_batches[class_id], extractor, sample_size))))
         else:
-            ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id], output_size)))
+            ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id], output_size, device)))
 
     return ld
 

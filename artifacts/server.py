@@ -126,7 +126,7 @@ if __name__ == "__main__":
 		if args["model"] == "regression":
 			model = LogisticRegression(input_size=input_size, num_classes=n_classes).to('cpu')
 		elif args["model"] == "cnn":
-			model = LeNet_5(in_channels=n_channels, num_classes=n_classes).to('cpu')
+			model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to('cpu')
 		elif args["model"] == "resnet9":
 			model = ResNet9().to('cpu')
 		else:

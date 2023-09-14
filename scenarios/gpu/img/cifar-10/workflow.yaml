@@ -27,7 +27,7 @@
     - name: Downloading dataset
       shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/dl_dataset.py --dataset {{ dataset }}'
     - name: Generating partitions
-      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/partition_data.py --n_partitions {{ n_part }} --dataset {{ dataset }} --alpha {{ alpha }}'
+      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/partition_data.py --n_partitions {{ total_num_clients }} --dataset {{ dataset }} --alpha {{ alpha }}'
   
 
 # Server
@@ -55,9 +55,11 @@
               --min_fit_clients {{ min_fit_clients }}
               --fraction_fit {{ fraction_fit }}
               --local_epochs {{ local_epochs }}
-              --n_clusters {{ n_transforms }}
+              --n_clusters {{ n_clusters }}
               --dataset {{ dataset }}
-              --compression {{ compression }}'
+              --compression {{ compression }}
+              --total_num_clients {{ total_num_clients }}
+              --transforms {{ transforms }}'
       async: "{{ async }}"
       poll: 0
     - debug:
@@ -68,8 +70,6 @@
                     python3 /app/artifacts/client.py
                     --server_address {{ _self.url }}:8080
                     --model {{ model }}
-                    --num {{ item }}
-                    --transform {{ transform[item % n_transforms] }}
                     --client {{ client }}
                     --compression {{ compression }}
                     --path_to_encoder_weights {{ path_to_encoder_weights }}
@@ -107,8 +107,6 @@
                   python3 /app/artifacts/client.py
                   --server_address {{ server.url }}:8080
                   --model {{ model }}
-                  --num {{ (n_client_per_node) * (loop.index - 1) + item + n_client_server_node }}
-                  --transform {{ transform[item % n_transforms] }}
                   --client {{ client }}
                   --compression {{ compression }}
                   --path_to_encoder_weights {{ path_to_encoder_weights }}

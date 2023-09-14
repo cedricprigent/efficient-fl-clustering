@@ -1,0 +1,18 @@
+---
+environment:
+  job_name: base_fl
+  walltime: "01:00:00"
+  g5k:
+    job_type: ["deploy"]
+    env_name: "debian10-x64-big"
+    cluster: "chifflot"
+layers:
+- name: cloud
+  services:
+  - name: FLServer
+    quantity: 1
+- name: edge
+  services:
+  - name: FLClient
+    quantity: 2
+

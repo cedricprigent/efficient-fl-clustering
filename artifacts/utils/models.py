@@ -216,26 +216,91 @@ class ResNet9(nn.Module):
 
 
 class AutoEncoder(torch.nn.Module):
-    def __init__(self, n_channels, im_size):
+    def __init__(self, n_channels, im_size, z_dim, hidden_dim):
         super().__init__()
-
+        
         self.encoder = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(n_channels * im_size * im_size, 400),
+            torch.nn.Linear(n_channels * im_size * im_size, hidden_dim),
             torch.nn.ReLU(),
-            torch.nn.Linear(400, z_dim)
+            torch.nn.Linear(hidden_dim, z_dim)
         )
 
         self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(z_dim, 400),
+            torch.nn.Linear(z_dim, hidden_dim),
             torch.nn.ReLU(),
-            torch.nn.Linear(400, n_channels * im_size * im_size),
+            torch.nn.Linear(hidden_dim, n_channels * im_size * im_size),
             torch.nn.Sigmoid()
         )
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = torch.reshape(self.decoder(encoded), (-1, n_channels, im_size, im_size))
         return decoded
+
+
+
+class Conv_AE(nn.Module):
+    def __init__(self):
+        super(Conv_AE, self).__init__()
+        # Input size: [batch, 3, 32, 32]
+        # Output size: [batch, 3, 32, 32]
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 12, 4, stride=2, padding=1),            # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.Conv2d(12, 24, 4, stride=2, padding=1),           # [batch, 24, 8, 8]
+            nn.ReLU(),
+			nn.Conv2d(24, 48, 4, stride=2, padding=1),           # [batch, 48, 4, 4]
+            nn.ReLU(),
+        )
+        self.decoder = nn.Sequential(
+			nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
+            nn.ReLU(),
+			nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.ConvTranspose2d(12, 1, 4, stride=2, padding=1),   # [batch, 3, 32, 32]
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+        
+
+class Feature_embedding(nn.Module):
+
+    def __init__(self, input_h=28, in_channels=1, num_classes=10):
+        super(Feature_embedding, self).__init__()
+        
+        # conv_maxpool_output = (input_h - kernel_size + 1) / 2 
+        features_output_h = int((((input_h - 4)/2) - 4)/2)
+        features_output_size = features_output_h * features_output_h
+
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+
+        self.features = nn.Sequential(
+            
+            nn.Conv2d(in_channels, 16*in_channels, kernel_size=5),
+            nn.Tanh(),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(16*in_channels, 32*in_channels, kernel_size=5),
+            nn.Tanh(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(features_output_size*32*in_channels, 120*in_channels),
+            nn.Tanh(),
+            nn.Linear(120*in_channels, 84*in_channels),
+            nn.Tanh(),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
 
 
 class EncoderNet(nn.Module):

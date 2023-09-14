@@ -76,14 +76,18 @@ class Clustering_Server(Server):
 
         for current_round in range(1, num_rounds + 1):
             # Request low dimensional representation of client data and create clusters
+            s = timeit.default_timer()
             self.build_clusters(server_round=current_round, timeout=timeout)
+            log(INFO, f"Building clusters: {timeit.default_timer() - s}s")
             
             # Train model and replace previous global model
+            s = timeit.default_timer()
             res_fit = self.fit_round(server_round=current_round, timeout=timeout)
             if res_fit:
                 parameters_prime, _, _ = res_fit  # fit_metrics_aggregated
                 if parameters_prime:
                     self.parameters = parameters_prime
+            log(INFO, f"Local training: {timeit.default_timer() - s}s")
 
             # Evaluate model using strategy implementation
             res_cen = self.strategy.evaluate(current_round, parameters=self.parameters)
@@ -136,13 +140,19 @@ class Clustering_Server(Server):
             client_manager=self._client_manager,
         )
 
+        s = timeit.default_timer()
         results, failures = fit_clients(
             client_instructions=client_instructions,
             max_workers=self.max_workers,
             timeout=timeout,
         )
+        elapsed_low_dims = timeit.default_timer() - s
 
         # Build clusters
+        s = timeit.default_timer()
         cluster_labels = self.strategy.build_clusters(server_round, results, failures)
+        elapsed_k_means = timeit.default_timer() - s
+        log(INFO, f"Requesting low dims: {elapsed_low_dims}s")
+        log(INFO, f"Computing K-Means: {elapsed_k_means}s")
 
         return cluster_labels

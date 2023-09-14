@@ -57,10 +57,16 @@ class IFCA(TensorboardStrategy):
         self.n_base_layers = n_base_layers
 
         self.parameters = []
-        for m_init in model_init:
-            for _, val in m_init.items():
-                self.parameters.append(val.cpu().numpy())
-        self.param_size = len(self.parameters) // n_clusters
+        for i, m_init in enumerate(model_init):
+            for j, (_,val) in enumerate(m_init.items()):
+                # add entire model weights
+                if i == 0:
+                    self.parameters.append(val.cpu().numpy())
+                # add only personalized layers
+                elif j>n_base_layers-1:
+                    self.parameters.append(val.cpu().numpy())
+
+        self.n_pers_layers = (len(self.parameters) - self.n_base_layers) // self.n_clusters
         self.parameters = ndarrays_to_parameters(self.parameters)
         
         self.kmeans = None
@@ -97,6 +103,8 @@ class IFCA(TensorboardStrategy):
             config["client_number"] = i
             config["n_clusters"] = self.n_clusters
             config["round"] = server_round
+            config["n_base_layers"] = self.n_base_layers
+            config["n_pers_layers"] = self.n_pers_layers
             partition_conf.update(config)
             fit_configurations.append((client, FitIns(self.parameters, copy.deepcopy(partition_conf))))
 
@@ -138,6 +146,8 @@ class IFCA(TensorboardStrategy):
         self.cluster_labels = np.array(cluster_labels, dtype=object)[ordered_indices]
         self.cluster_truth = np.array(cluster_truth, dtype=object)[ordered_indices]
 
+        print_clusters(self.cluster_labels, self.cluster_truth, n_clusters=self.n_clusters)
+
         base_layers = [(param[:self.n_base_layers], n_examples) for param, n_examples in weights_results]
         base_layers_agg = aggregate(base_layers)
 
@@ -147,32 +157,21 @@ class IFCA(TensorboardStrategy):
             personalized_layers[label].append((weights_results[client_number][0][self.n_base_layers:], 
                                             weights_results[client_number][1]))
 
-        # Compute global update for each cluster
-        parameters_aggs = []
+        # Compute personalized update for each cluster
+        personalized_layers_aggs = []
         for i, weights in enumerate(personalized_layers):
             if len(weights) == 0:
-                personalized_layers_agg = parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)][self.n_base_layers:]
+                personalized_layers_agg = parameters_to_ndarrays(self.parameters)[self.n_base_layers:][self.n_pers_layers*i : self.n_pers_layers*(i+1)]
             else:
                 personalized_layers_agg = aggregate(weights)
-            cluster_weights = base_layers_agg + personalized_layers_agg
-            parameters_aggs.append(cluster_weights)
-
-        # # Group local model weights per clusters
-        # weights_per_cluster = [[] for i in range(self.n_clusters)]
-        # for i, cluster_label in enumerate(self.cluster_labels):
-        #     weights_per_cluster[cluster_label].append(weights_results[i])
-
-        # # Compute global update for each cluster
-        # parameters_aggs = []
-        # for i in range(self.n_clusters):
-        #     # # If no results for a given model, keep the previous model weights
-        #     if len(weights_per_cluster[i]) == 0:
-        #         parameters_aggs.append(parameters_to_ndarrays(self.parameters)[self.param_size*i : self.param_size*(i+1)])
-        #     else:
-        #         parameters_aggs.append(aggregate(weights_per_cluster[i]))
+            # cluster_weights = base_layers_agg + personalized_layers_agg
+            personalized_layers_aggs.append(personalized_layers_agg)
         
         self.parameters = []
-        for params in parameters_aggs:
+        # Add base layers
+        for val in base_layers_agg:
+            self.parameters.append(val)
+        for params in personalized_layers_aggs:
             for val in params:
                 self.parameters.append(val)
         
@@ -204,7 +203,7 @@ class IFCA(TensorboardStrategy):
         for i, client in enumerate(self.clients):
             cluster_id = self.cluster_labels[i]
             config = {"cluster_id": cluster_id}
-            cluster_params = params[self.param_size*cluster_id : self.param_size*(cluster_id+1)]
+            cluster_params = params[:self.n_base_layers] + params[self.n_base_layers:][self.n_pers_layers*cluster_id : self.n_pers_layers*(cluster_id+1)]
             eval_configurations.append((client, EvaluateIns(ndarrays_to_parameters(cluster_params), config)))
 
         # Return client/config pairs

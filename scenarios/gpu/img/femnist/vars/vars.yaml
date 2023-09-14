@@ -14,10 +14,6 @@ min_fit_clients: 100
 fraction_fit: 1
 local_epochs: 1
 n_clusters: 3
-transforms: 'None'
-
-
-transform: ['None', 'label_flip_1']
 
 # Deployment
 n_client_server_node: 30
