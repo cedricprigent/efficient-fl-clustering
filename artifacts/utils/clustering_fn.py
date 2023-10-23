@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from random import random
 from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.cluster import adjusted_rand_score
@@ -54,27 +55,85 @@ def compute_avg(low_dim):
     return low_dim.mean(0).cpu().detach().numpy()
 
 
-def compute_low_dims_per_class(net, dataloader, output_size, device, style_extraction=False, sample_size=784, n_classes=10):
+def compute_low_dims_per_class(net, dataloader, output_size, device, compression='AE', sample_size=784, n_classes=10, randomized_quantization=0.1):
     ld = np.array([])
     class_batches = split_by_class(dataloader, n_classes, device=device)
     for class_id in range(n_classes):
-        if style_extraction:
+        if compression == 'StyleExtraction':
             extractor = StyleExtractor()
             ld = np.append(ld, compute_avg(torch.Tensor(extract_style(class_batches[class_id], extractor, sample_size))))
         else:
-            ld = np.append(ld, compute_avg(compute_low_dims(net, class_batches[class_id], output_size, device)))
+            res = compute_avg(compute_low_dims(net, class_batches[class_id], output_size, device))
+            res = res.flatten()
+            res = randomized_binary_quantization(
+                torch.from_numpy(res), randomized_quantization, device).numpy()
+            ld = np.append(ld, res)
 
     return ld
 
+def randomized_quantization(embedding, threshold, device):
+    binary_embedding = torch.round(embedding)
+    min_embedding = torch.min(binary_embedding)
+    max_embedding = torch.max(binary_embedding)
 
-def make_clusters(low_dims, n_clusters, n_clients, kmeans=None, find_optimal=False):
+    discrete_values = torch.Tensor([min_embedding,
+                                    (min_embedding + (max_embedding-min_embedding)) / 4,
+                                    (min_embedding + (max_embedding-min_embedding)) * 2 / 4,
+                                    (min_embedding + (max_embedding-min_embedding)) * 3 / 4,
+                                    max_embedding]).to(device)
+    
+    # quantization
+    for i in range(len(binary_embedding)):
+        if random() < threshold:
+            binary_embedding[i] = torch.tensor(np.random.choice(discrete_values.detach().to('cpu').numpy(), 1)[0])
+        else:
+            binary_embedding[i] = discretize(binary_embedding[i], discrete_values)
+    
+    return binary_embedding
+
+def randomized_binary_quantization(embedding, threshold, device):
+    # quantization
+    binary_embedding = binary_quantization(embedding)
+    
+    # randomization
+    for i in range(len(binary_embedding)):
+        if random() < threshold:
+            if binary_embedding[i] == 0:
+                binary_embedding[i] = 1
+            else:
+                binary_embedding[i] = 0
+    
+    return binary_embedding
+
+def binary_quantization(tensor):
+    return torch.round(
+        normalize_tensor(tensor)
+    )
+
+def normalize_tensor(data):
+    return (data - torch.min(data)) / (torch.max(data) - torch.min(data))
+
+
+def discretize(contValue: torch.tensor, discValues: torch.tensor) -> torch.tensor:
+
+    diff    = discValues - contValue
+    absDiff = torch.abs(diff)
+    minIdx  = torch.argmin(absDiff)
+    dt      = contValue + diff[minIdx]
+
+    return dt
+
+def make_clusters(low_dims, n_clusters, n_clients, kmeans_type='minibatch', kmeans=None, find_optimal=False):
     if find_optimal:
         optim_clusters = find_optimal_clustering(low_dims, n_clusters)
         print("Optimal number of clusters: ", optim_clusters)
-    if kmeans is None:
-        kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
+    if kmeans_type == 'minibatch':
+        if kmeans is None:
+            kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
+        else:
+            kmeans = kmeans.partial_fit(low_dims)
     else:
-        kmeans = kmeans.partial_fit(low_dims)
+        kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
     centers = kmeans.cluster_centers_
     labels = kmeans.labels_
 

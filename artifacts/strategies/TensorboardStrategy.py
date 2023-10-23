@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import random
 import copy
+import time
 
 from flwr.common import (
     Code,
@@ -57,6 +58,10 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         self, server_round, parameters, client_manager
     ):
         """Configure the next round of training."""
+
+        if server_round == 1:
+            self.init_scalars()
+
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided
@@ -119,6 +124,7 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         # Write scalars
         self.writer.add_scalar("Training/federated_accuracy", metrics_aggregated["accuracy"], server_round)
         self.writer.add_scalar("Training/federated_std", np.std(accs), server_round)
+        self.writer.add_scalar('System/total_time', time.time() - self.start_time, server_round)
 
         return loss_aggregated, metrics_aggregated
 
@@ -148,3 +154,12 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         self.writer.add_scalar("Training/total_num_met", self.encountered_clients.count(True), server_round)
 
         return partitions_conf
+
+
+    def init_scalars(self):
+        self.writer.add_scalar("System/bytes_rcv", 0, 0)
+        self.writer.add_scalar("System/bytes_sent", 0, 0)
+        self.writer.add_scalar("Training/federated_accuracy", 0, 0)
+        self.writer.add_scalar("Training/federated_std", 0, 0)
+        self.writer.add_scalar('System/total_time', 0, 0)
+        self.start_time = time.time()

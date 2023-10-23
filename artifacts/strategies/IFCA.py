@@ -83,6 +83,9 @@ class IFCA(TensorboardStrategy):
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
         
+        if server_round == 1:
+            self.init_scalars()
+        
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided

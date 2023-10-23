@@ -7,7 +7,7 @@ import logging
 import flwr as fl
 
 from utils.datasets import load_partition
-from utils.models import LeNet_5, ResNet9, LogisticRegression, AutoEncoder, EncoderNet, EncoderNet_Cifar, Conv_AE, Feature_embedding
+from utils.models import LeNet_5, ResNet9, AutoEncoder, EncoderNet, EncoderNet_Cifar, Conv_AE
 from utils.partition_data import Partition
 from utils.client import StandardClient, EncodingClient, IFCAClient, load_partition
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model", type=str, default="cnn", help="Model to train: cnn, regression"
+        "--model", type=str, default="cnn", help="Model to train: cnn, resnet9"
     )
     parser.add_argument(
         "--num", type=int, required=False, default=0, help="client number"
@@ -47,6 +47,9 @@ if __name__ == "__main__":
         "--dataset", type=str, required=False, default="mnist", help="mnist, cifar10"
     )
     parser.add_argument(
+        "--randomized_quantization", type=float, required=False, default=0.1, help="Randomization rate for quantization"
+    )
+    parser.add_argument(
         "--sim", action='store_true', default=True
     )
     parser.add_argument(
@@ -64,7 +67,6 @@ if __name__ == "__main__":
         args.update(json_config)
 
     # Input size
-    style_extraction = False
     encoder = None
     if args["dataset"] == "mnist":
         n_channels = 1
@@ -83,7 +85,6 @@ if __name__ == "__main__":
             encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 2
         elif args["compression"] == 'StyleExtraction':
-            style_extraction = True
             z_dim = 2
         else:
             raise NotImplementedError
@@ -111,7 +112,6 @@ if __name__ == "__main__":
             encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 20
         elif args["compression"] == 'StyleExtraction':
-            style_extraction = True
             z_dim = 20
         else:
             raise NotImplementedError
@@ -134,18 +134,15 @@ if __name__ == "__main__":
             encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 2
         elif args["compression"] == 'StyleExtraction':
-            style_extraction = True
             z_dim = 2
         else:
             raise NotImplementedError
 
 
-    if args["model"] == "regression":
-        model = LogisticRegression(input_size=input_size, num_classes=n_classes).to(DEVICE)
-    elif args["model"] == "cnn":
+    if args["model"] == "cnn":
         model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to(DEVICE)
     elif args["model"] == "resnet9":
-        model = ResNet9().to('cpu')
+        model = ResNet9(in_channels=n_channels).to(DEVICE)
     else:
         try:
             raise ValueError('Invalid model name')
@@ -163,7 +160,6 @@ if __name__ == "__main__":
 
     if args["client"] == "EncodingClient":
         args["z_dim"] = z_dim
-        args["style_extraction"] = style_extraction
         args["n_classes"] = n_classes
         client=EncodingClient(
             model=model,

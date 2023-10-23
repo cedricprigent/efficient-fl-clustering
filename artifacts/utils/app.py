@@ -21,6 +21,8 @@ from flwr.common import (
 
 import timeit
 
+from strategies.ClusterEmbeddings import ClusterEmbeddings
+
 FitResultsAndFailures = Tuple[
     List[Tuple[ClientProxy, FitRes]],
     List[Union[Tuple[ClientProxy, FitRes], BaseException]],
@@ -45,6 +47,7 @@ class Clustering_Server(Server):
     ) -> None:
 
         client_manager = SimpleClientManager()
+        self.static_clustering = isinstance(strategy, ClusterEmbeddings)
 
         super().__init__(client_manager=client_manager, 
                         strategy=strategy)
@@ -74,11 +77,18 @@ class Clustering_Server(Server):
         log(INFO, "FL starting")
         start_time = timeit.default_timer()
 
+        if self.static_clustering:
+            s = timeit.default_timer()
+            log(INFO, f"Building static clusters")
+            self.build_clusters(server_round=0, timeout=timeout)
+            log(INFO, f"Time: {timeit.default_timer() - s}s")
+
         for current_round in range(1, num_rounds + 1):
             # Request low dimensional representation of client data and create clusters
-            s = timeit.default_timer()
-            self.build_clusters(server_round=current_round, timeout=timeout)
-            log(INFO, f"Building clusters: {timeit.default_timer() - s}s")
+            if not self.static_clustering:
+                s = timeit.default_timer()
+                self.build_clusters(server_round=current_round, timeout=timeout)
+                log(INFO, f"Building dynamic clusters: {timeit.default_timer() - s}s")
             
             # Train model and replace previous global model
             s = timeit.default_timer()
@@ -146,6 +156,7 @@ class Clustering_Server(Server):
             max_workers=self.max_workers,
             timeout=timeout,
         )
+        print("failures", failures)
         elapsed_low_dims = timeit.default_timer() - s
 
         # Build clusters

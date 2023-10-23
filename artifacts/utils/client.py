@@ -9,7 +9,7 @@ import torch
 import torchvision.transforms as transforms
 
 from utils.transforms import Rotate, LabelFlip, Invert, Equalize
-from utils.function import train_standard_classifier, train_regression, test_standard_classifier, test_regression
+from utils.function import train_standard_classifier, test_standard_classifier
 from utils.clustering_fn import compute_low_dims_per_class
 from utils.datasets import load_partition
 from utils.partition_data import Partition
@@ -43,10 +43,7 @@ class StandardClient(fl.client.NumPyClient):
 
         # local training
         self.set_parameters(parameters)
-        if self.args["model"] == 'cnn':
-            train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
-        elif self.args["model"] == 'regression':
-            train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
+        train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
 
         params = self.get_parameters()
 
@@ -54,10 +51,7 @@ class StandardClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        if self.args["model"] == 'cnn':
-            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
-        elif self.args["model"] == 'regression':
-            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+        loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
 
         print(f"EVAL model performance - accuracy: {accuracy}, loss: {loss}")
 
@@ -76,53 +70,56 @@ class EncodingClient(StandardClient):
 
     def fit(self, parameters, config):
         if config["task"] == "compute_low_dim":
-            # load partition to use
-            if self.sim:
-                self.transform = config['transform']
-                self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
+            low_dims = []
             s = time.time()
-            # compressing local data
-            print("CLIENT NUM: ", config["client_number"])
-            if self.args["compression"] == 'AE' and self.args["dataset"] == 'cifar10':
-                self.trainloader.dataset.transform = transforms.Compose([transforms.ToTensor(), transforms.Grayscale()])
-            sample_flat_dim = self.trainloader.dataset[0][0].flatten().size()[0]
-            ld = compute_low_dims_per_class(self.embedding_model, 
-                self.trainloader, 
-                output_size=self.args['z_dim'], 
-                device=DEVICE, 
-                style_extraction=self.args['style_extraction'], 
-                sample_size=sample_flat_dim,
-                n_classes=self.args['n_classes']
-            )
-            print(len(ld))
-            if self.args["compression"] == 'AE' and self.args["dataset"] == 'cifar10':
-                self.trainloader.dataset.transform = transforms.Compose([transforms.ToTensor()])
+            # load dynamic partition to use
+            if self.sim:
+                partitions = config['partition'].split(',')
+                transforms = config['transform'].split(',')
+                for partition, transform in zip(partitions, transforms):
+                    print(f"Generating low dim for partition: {partition}")
+                    self.load_partition(partition=partition, transform_instruction=transform)
+                    ld = self.compute_low_dim()
+                    low_dims.append(ld)
+            # using static partition
+            else:
+                low_dims = [self.compute_low_dim()]
             t = time.time() - s
             self.t_comp = t
-            return [np.array(ld)], len(self.trainloader), {"transform": self.transform, "client_number": config["client_number"]}
+            return [np.array(low_dims)], len(self.trainloader), {"transform": config["transform"], "partition": config["partition"]}
         else:
             # local training
             print("CLIENT NUM: ", config["client_number"])
+            self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
             s = time.time()
             self.set_parameters(parameters)
-            if self.args["model"] == 'cnn':
-                train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
-            elif self.args["model"] == 'regression':
-                train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
+
+            train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
 
             params = self.get_parameters()
             t = time.time() - s
             self.t_train = t
             print(f"t_comp {self.t_comp}, t_train {self.t_train}, ratio {self.t_comp / self.t_train}")
-            return params, len(self.trainloader), {"transform": self.transform, "client_number": config["client_number"]}
+            return params, len(self.trainloader), {"transform": config["transform"], "partition": config["partition"], "client_number": config["client_number"]}
 
+
+    def compute_low_dim(self):
+        sample_flat_dim = self.trainloader.dataset[0][0].flatten().size()[0]
+        ld = compute_low_dims_per_class(self.embedding_model, 
+            self.trainloader, 
+            output_size=self.args['z_dim'], 
+            device=DEVICE, 
+            compression=self.args['compression'], 
+            sample_size=sample_flat_dim,
+            n_classes=self.args['n_classes'],
+            randomized_quantization=self.args['randomized_quantization']
+        )
+        return ld
+    
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        if self.args["model"] == 'cnn':
-            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
-        elif self.args["model"] == 'regression':
-            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+        loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
 
         print(f"Cluster {config['cluster_id']} EVAL model performance - accuracy: {accuracy}, loss: {loss} | transform {self.args['transform']}")
 
@@ -152,10 +149,7 @@ class IFCAClient(StandardClient):
         
         self.set_parameters(parameters[:n_base_layers] + parameters[n_base_layers:][n_pers_layers*cluster_id : n_pers_layers*(cluster_id+1)])
 
-        if self.args["model"] == 'cnn':
-            train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
-        elif self.args["model"] == 'regression':
-            train_regression(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
+        train_standard_classifier(self.model, self.trainloader, config=config, device=DEVICE, args=self.args)
 
         params = self.get_parameters()
 
@@ -163,10 +157,7 @@ class IFCAClient(StandardClient):
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        if self.args["model"] == 'cnn':
-            loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
-        elif self.args["model"] == 'regression':
-            loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+        loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
 
         print(f"EVAL model performance - accuracy: {accuracy}, loss: {loss}")
 
@@ -176,10 +167,7 @@ class IFCAClient(StandardClient):
         id = 0
         for i in range(n_clusters):
             self.set_parameters(parameters[:n_base_layers] + parameters[n_base_layers:][n_pers_layers*i : n_pers_layers*(i+1)])
-            if self.args["model"] == 'cnn':
-                loss, accuracy = test_standard_classifier(self.model, self.valloader, device=DEVICE)
-            elif self.args["model"] == 'regression':
-                loss, accuracy = test_regression(self.model, self.valloader, device=DEVICE)
+            loss, accuracy = test_standard_classifier(self.model, self.trainloader, device=DEVICE)
             if i==0:
                 best_loss = loss
             elif loss < best_loss:
