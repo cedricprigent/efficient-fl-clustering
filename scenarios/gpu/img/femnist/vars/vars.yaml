@@ -5,6 +5,7 @@ client: 'EncodingClient'
 model: 'cnn'
 compression: 'AE'
 path_to_encoder_weights: '/app/artifacts/pre-trained/mnist'
+randomized_quantization: 0.2
 
 # Server args
 num_rounds: 1000
@@ -12,7 +13,7 @@ total_num_clients: 3550
 min_available_clients: 100
 min_fit_clients: 100
 fraction_fit: 1
-local_epochs: 1
+local_epochs: 5
 n_clusters: 3
 
 # Deployment

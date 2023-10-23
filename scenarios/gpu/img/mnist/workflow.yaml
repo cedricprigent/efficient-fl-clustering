@@ -74,6 +74,7 @@
                     --compression {{ compression }}
                     --path_to_encoder_weights {{ path_to_encoder_weights }}
                     --dataset {{ dataset }}
+                    --randomized_quantization {{ randomized_quantization }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"
@@ -111,6 +112,7 @@
                   --compression {{ compression }}
                   --path_to_encoder_weights {{ path_to_encoder_weights }}
                   --dataset {{ dataset }}
+                  --randomized_quantization {{ randomized_quantization }}
                 {% endif %}
               {% endfor %}"
       async: "{{ async }}"

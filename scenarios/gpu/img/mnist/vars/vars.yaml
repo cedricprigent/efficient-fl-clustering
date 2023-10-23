@@ -5,6 +5,7 @@ client: 'EncodingClient'
 model: 'cnn'
 compression: 'AE'
 path_to_encoder_weights: '/app/artifacts/pre-trained/mnist'
+randomized_quantization: 0.2
 
 # Server args
 num_rounds: 50

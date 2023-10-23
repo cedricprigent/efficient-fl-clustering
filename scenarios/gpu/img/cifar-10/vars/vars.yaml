@@ -2,9 +2,10 @@
 dataset: 'cifar10'
 strategy: 'testencoding'
 client: 'EncodingClient'
-model: 'cnn'
+model: 'resnet9'
 compression: 'AE'
 path_to_encoder_weights: '/app/artifacts/pre-trained/cifar10'
+randomized_quantization: 0.1
 
 # Server args
 num_rounds: 100
@@ -13,8 +14,8 @@ min_available_clients: 50
 min_fit_clients: 50
 fraction_fit: 1
 local_epochs: 5
-n_clusters: 2
-transforms: 'none,label_flip_1'
+n_clusters: 4
+transforms: 'none,label_flip_1,label_flip_2,label_flip_3'
 
 # Deployment
 n_client_server_node: 0
