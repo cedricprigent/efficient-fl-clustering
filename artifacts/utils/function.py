@@ -116,30 +116,36 @@ def train_regression(model, train_dataloader, config, device=DEVICE, args=None):
             epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
 
 
-def test_standard_classifier(model, test_dataloader, device=DEVICE):
+def test_standard_classifier(model, test_dataloader, test_percentage=1, device=DEVICE):
     #Sets the module in evaluation mode
     model.eval()
     test_loss = 0
     classif_accuracy = 0
+    criterion = nn.CrossEntropyLoss()
+    stop_iteration = (len(test_dataloader) // (1/test_percentage)) or 1
+    total_samples = 0
+    print(f'Stop iteration: {stop_iteration}')
     with torch.inference_mode():
         for i, (X, y) in enumerate(test_dataloader):
+            if i > stop_iteration:
+                break
+            total_samples += len(X)
             X = X.to(device)
             y = y.to(device)
             # 1. Forward pass
             c_out = model(X)
-            dim_y = c_out.shape[1]
-
-            y_onehot = F.one_hot(y, dim_y).to(device)
 
             # 2. Loss
-            loss = loss_fn_standard_classifier(c_out, y_onehot)
+            loss = criterion(c_out, y)
             test_loss += loss.item()
             classif_accuracy += accuracy_fn(y, torch.argmax(c_out, dim=1))
 
-
-    test_loss /= len(test_dataloader.dataset)
+    # test_loss /= len(test_dataloader.dataset)
+    test_loss /= total_samples
+    # classif_accuracy /= len(test_dataloader)
+    classif_accuracy /= stop_iteration
     print('====> Test set loss: {:.4f}'.format(test_loss))
-    return test_loss, classif_accuracy/len(test_dataloader)
+    return test_loss, classif_accuracy
 
 
 def test_regression(model, test_dataloader, device=DEVICE):

@@ -1,0 +1,24 @@
+# Scenario
+dataset: 'pacs'
+strategy: 'testencoding'
+client: 'EncodingClient'
+model: 'resnet9'
+compression: 'AE'
+path_to_encoder_weights: '/app/artifacts/pre-trained'
+randomized_quantization: 0.1
+
+# Server args
+num_rounds: 100
+total_num_clients: 40
+min_available_clients: 10
+min_fit_clients: 10
+fraction_fit: 1
+local_epochs: 1
+n_clusters: 4
+transforms: 'pacs'
+
+# Deployment
+n_client_server_node: 0
+n_client_per_node: 5
+alpha: 10
+async: 7200

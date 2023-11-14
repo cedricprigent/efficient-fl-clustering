@@ -20,6 +20,13 @@ def select_samples(dataloader, label, device):
 
 def split_by_class(dataloader, n_classes, device):
     samples = [[] for _ in range(n_classes)]
+    # X, Y = dataloader.dataset.data, torch.tensor(dataloader.dataset.targets)
+    # X, Y = next(iter(torch.utils.data.DataLoader(dataset=dataloader.dataset, batch_size=len(dataloader.dataset))))
+    # for i in range(n_classes):
+    #     class_indices = torch.nonzero(Y == i).flatten()
+    #     class_samples = torch.index_select(X, 0, class_indices)
+    #     samples.append(class_samples)
+
     for _, (x, y) in enumerate(dataloader):
         for i in range(len(x)):
             samples[y[i].detach().cpu().numpy()].append(x[i].to(device))

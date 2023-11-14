@@ -8,7 +8,8 @@ import flwr as fl
 
 from utils.datasets import load_partition
 from utils.models import LeNet_5, ResNet9, AutoEncoder, EncoderNet, EncoderNet_Cifar, Conv_AE
-from utils.partition_data import Partition
+from torchvision.models import resnet18
+from utils.partition import Partition, FolderPartition
 from utils.client import StandardClient, EncodingClient, IFCAClient, load_partition
 
 torch.manual_seed(0)
@@ -78,11 +79,11 @@ if __name__ == "__main__":
             z_dim = 50
             hidden_dim = 100
             ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
-            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/ae.pt", map_location=torch.device(DEVICE)))
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/mnist/ae.pt", map_location=torch.device(DEVICE)))
             encoder = ae.encoder
         elif args["compression"] == 'Triplet':
             encoder = encoder_net().to(DEVICE)
-            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
+            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/mnist/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 2
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
@@ -100,17 +101,34 @@ if __name__ == "__main__":
             z_dim = 768
             # ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
             ae = Conv_AE().to(DEVICE)
-            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/ae.pt", map_location=torch.device(DEVICE)))
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/cifar-10/ae.pt", map_location=torch.device(DEVICE)))
             encoder = ae.encoder
         elif args["compression"] == 'feature_embedding':
             z_dim = 10
             encoder = LeNet_5(input_h=32, in_channels=3, num_classes=10).to(DEVICE)
-            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/le_net_feature_embedding.pt", map_location=torch.device(DEVICE)))
+            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/cifar-10/le_net_feature_embedding.pt", map_location=torch.device(DEVICE)))
             encoder = torch.nn.Sequential(encoder, torch.nn.Flatten())
         elif args["compression"] == 'Triplet':
             encoder = encoder_net().to(DEVICE)
-            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
+            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/cifar-10/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 20
+        elif args["compression"] == 'StyleExtraction':
+            z_dim = 20
+        else:
+            raise NotImplementedError
+
+    elif args["dataset"] == "pacs":
+        n_channels = 3
+        im_size = 64
+        input_size = n_channels*im_size*im_size
+        encoder_net = EncoderNet_Cifar
+        n_classes = 7
+        if args["compression"] == 'AE':
+            z_dim = 3072
+            # ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
+            ae = Conv_AE().to(DEVICE)
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/pacs/ae.pt", map_location=torch.device(DEVICE)))
+            encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 20
         else:
@@ -127,11 +145,11 @@ if __name__ == "__main__":
             z_dim = 50 
             hidden_dim = 100
             ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
-            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/ae.pt", map_location=torch.device(DEVICE)))
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/mnist/ae.pt", map_location=torch.device(DEVICE)))
             encoder = ae.encoder
         elif args["compression"] == 'Triplet':
             encoder = encoder_net().to(DEVICE)
-            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/enc_save_orig.pth", map_location=torch.device(DEVICE)))
+            encoder.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/mnist/enc_save_orig.pth", map_location=torch.device(DEVICE)))
             z_dim = 2
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
@@ -142,7 +160,9 @@ if __name__ == "__main__":
     if args["model"] == "cnn":
         model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to(DEVICE)
     elif args["model"] == "resnet9":
-        model = ResNet9(in_channels=n_channels).to(DEVICE)
+        # model = ResNet9(in_channels=n_channels).to(DEVICE)
+        model = resnet18().to(DEVICE)
+        model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to(DEVICE)
     else:
         try:
             raise ValueError('Invalid model name')

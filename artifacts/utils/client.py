@@ -12,11 +12,11 @@ from utils.transforms import Rotate, LabelFlip, Invert, Equalize
 from utils.function import train_standard_classifier, test_standard_classifier
 from utils.clustering_fn import compute_low_dims_per_class
 from utils.datasets import load_partition
-from utils.partition_data import Partition
+from utils.partition import Partition, FolderPartition
 
 torch.manual_seed(0)
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
-batch_size = 64
+batch_size = 32
 
 class StandardClient(fl.client.NumPyClient):
     def __init__(self, model, trainloader=None, valloader=None, sim=True, args={}):
@@ -167,7 +167,7 @@ class IFCAClient(StandardClient):
         id = 0
         for i in range(n_clusters):
             self.set_parameters(parameters[:n_base_layers] + parameters[n_base_layers:][n_pers_layers*i : n_pers_layers*(i+1)])
-            loss, accuracy = test_standard_classifier(self.model, self.trainloader, device=DEVICE)
+            loss, accuracy = test_standard_classifier(self.model, self.trainloader, test_percentage=0.2, device=DEVICE)
             if i==0:
                 best_loss = loss
             elif loss < best_loss:
@@ -195,6 +195,8 @@ def load_transform(transform_instruction):
         transform = transforms.Compose([Rotate(180), transforms.ToTensor()])
     elif transform_instruction == "rotate270":
         transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
+    elif transform_instruction == "pacs":
+        transform = None
     else:
         transform = transforms.Compose([transforms.ToTensor()])
         

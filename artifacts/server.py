@@ -16,6 +16,7 @@ import traceback
 
 from utils.datasets import load_data
 from utils.models import LeNet_5, ResNet9, weight_reset
+from torchvision.models import resnet18
 from utils.app import Clustering_Server, Server
 from flwr.server.client_manager import SimpleClientManager
 
@@ -113,6 +114,11 @@ if __name__ == "__main__":
 		im_size = 32
 		input_size = n_channels*im_size*im_size
 		n_classes = 10
+	elif args["dataset"] == "pacs":
+		n_channels = 3
+		im_size = 64
+		input_size = n_channels*im_size*im_size
+		n_classes = 7
 	elif args["dataset"] == "femnist":
 		n_channels = 1
 		im_size = 28
@@ -121,12 +127,17 @@ if __name__ == "__main__":
 	
 	
 	# Global Model
-	n_base_layers = 4
 	if args['strategy'] == "testencoding" or args['strategy'] == "ifca":
 		if args["model"] == "cnn":
+			n_base_layers = 4
 			model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to('cpu')
 		elif args["model"] == "resnet9":
-			model = ResNet9(in_channels=n_channels).to('cpu')
+			# n_base_layers = 90
+			# n_base_layers = 120 # max base
+			n_base_layers = 0
+			# model = ResNet9(in_channels=n_channels).to('cpu')
+			model = resnet18().to('cpu')
+			model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to('cpu')
 		else:
 			try:
 				raise ValueError('Invalid model name')

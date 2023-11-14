@@ -1,3 +1,8 @@
+import sys
+import pathlib
+path = pathlib.Path(__file__).parent.parent.resolve()
+sys.path.append(f"{path}")
+
 import os
 import argparse
 import numpy as np
@@ -12,7 +17,7 @@ from torch.utils.data import Dataset
 from torchvision.datasets import CIFAR10, MNIST
 import torchvision.transforms as transforms
 
-from PIL import Image
+from utils.partition import Partition
 
 
 def random_partitions(n_partitions, dataset, malicious=False):
@@ -176,37 +181,6 @@ def generate_partitions(trainset, testset, n_partitions, alpha):
 
         torch.save(train_subset, f"/tmp/app/data/train/train_subset-{i}.pth")
         torch.save(test_subset, f"/tmp/app/data/test/test_subset-{i}.pth")
-
-
-class Partition(Dataset):
-    def __init__(self, data, targets, transform = None):
-        self.data = data
-        self.targets = targets
-        self.transform = transform
-        self.target_transform = None
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index: int):
-        """
-        Args:
-            index (int): Index
-
-        Returns:
-            tuple: (image, target) where target is index of the target class.
-        """
-        img, target = self.data[index], self.targets[index]
-
-        img = Image.fromarray(np.array(img))
-
-        if self.transform is not None:
-            img = self.transform(img)
-
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
-        return img, target
 
 
 if __name__ == "__main__":
