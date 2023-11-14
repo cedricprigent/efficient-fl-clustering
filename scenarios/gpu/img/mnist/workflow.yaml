@@ -25,9 +25,9 @@
     - name: Copy local files to docker container
       shell: 'docker cp -a /tmp/app/. fl-container:/app/artifacts/'
     - name: Downloading dataset
-      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/dl_dataset.py --dataset {{ dataset }}'
+      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/data_preparation/dl_dataset.py --dataset {{ dataset }}'
     - name: Generating partitions
-      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/utils/partition_data.py --n_partitions {{ total_num_clients }} --dataset {{ dataset }} --alpha {{ alpha }}'
+      shell: 'docker exec -t {{ container_name }} python3 /app/artifacts/data_preparation/partition_data.py --n_partitions {{ total_num_clients }} --dataset {{ dataset }} --alpha {{ alpha }}'
   
 
 # Server

@@ -4,7 +4,7 @@ strategy: 'testencoding'
 client: 'EncodingClient'
 model: 'cnn'
 compression: 'AE'
-path_to_encoder_weights: '/app/artifacts/pre-trained/mnist'
+path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.2
 
 # Server args

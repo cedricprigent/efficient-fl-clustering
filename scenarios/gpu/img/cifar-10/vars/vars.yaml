@@ -4,7 +4,7 @@ strategy: 'testencoding'
 client: 'EncodingClient'
 model: 'resnet9'
 compression: 'AE'
-path_to_encoder_weights: '/app/artifacts/pre-trained/cifar10'
+path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.1
 
 # Server args
