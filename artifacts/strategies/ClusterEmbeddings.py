@@ -27,6 +27,7 @@ from utils.clustering_fn import make_clusters, print_clusters, compute_clusterin
 from sklearn.manifold import TSNE
 
 import copy
+import time
 
 class ClusterEmbeddings(TensorboardStrategy):
     def __init__(
@@ -74,6 +75,8 @@ class ClusterEmbeddings(TensorboardStrategy):
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
 
+        self.start_training_round = time.time()
+
         if server_round == 0:
             self.init_scalars()
         
@@ -91,6 +94,7 @@ class ClusterEmbeddings(TensorboardStrategy):
         )
 
         if len(parameters.tensors) == 0:
+            self.start_clustering = time.time()
             # Request low dimensional representation of client data
             config["task"] = "compute_low_dim"
             print(config)
@@ -180,6 +184,8 @@ class ClusterEmbeddings(TensorboardStrategy):
 
         # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}
+
+        self.end_training_round = time.time()
         
         return self.parameters[0], metrics_aggregated
 
@@ -216,14 +222,15 @@ class ClusterEmbeddings(TensorboardStrategy):
         print(low_dims.shape)
 
         tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(low_dims)
-        torch.save(tsne, '/home/cprigent/Documents/notebook/ML/PFL/tsne.pt')
+        # torch.save(tsne, '/home/cprigent/Documents/notebook/ML/PFL/tsne.pt')
 
         # Building clusters
         self.cluster_labels, self.cluster_centers, _ = make_clusters(low_dims, n_clusters=self.n_clusters, n_clients=len(low_dims), kmeans_type='kmeans')
-        torch.save(self.cluster_labels, '/home/cprigent/Documents/notebook/ML/PFL/labels.pt')
+        # torch.save(self.cluster_labels, '/home/cprigent/Documents/notebook/ML/PFL/labels.pt')
 
         print_clusters(self.cluster_labels, self.cluster_truth, n_clusters=self.n_clusters)
 
+        self.end_clustering = time.time()
 
 
     def set_model_parameters(self, model, parameters):
@@ -276,6 +283,8 @@ class ClusterEmbeddings(TensorboardStrategy):
             self.writer.add_scalar(f"Cluster/federated_accuracy_C{i}", np.average(accs), server_round)
 
         self.writer.add_scalar(f'Cluster/adjusted_rand_score', clustering_acc, server_round)
+        self.writer.add_scalar(f"System/clustering_time", self.end_clustering - self.start_clustering, server_round)
+        self.writer.add_scalar(f'System/training_round_time', self.end_training_round - self.start_training_round, server_round)
 
         return loss_aggregated, metrics_aggregated
 

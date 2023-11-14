@@ -59,6 +59,8 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
     ):
         """Configure the next round of training."""
 
+        self.start_training_round = time.time()
+        
         if server_round == 1:
             self.init_scalars()
 
@@ -84,6 +86,21 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
 
         # Return client/config pairs
         return fit_configurations
+
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        """Aggregate fit results."""
+
+        params, metrics = super().aggregate_fit(server_round, results, failures)
+        self.end_training_round = time.time()
+
+        return params, metrics
+
 
     def evaluate(self, server_round, parameters):
         """Evaluate model parameters using an evaluation function."""
@@ -125,6 +142,7 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         self.writer.add_scalar("Training/federated_accuracy", metrics_aggregated["accuracy"], server_round)
         self.writer.add_scalar("Training/federated_std", np.std(accs), server_round)
         self.writer.add_scalar('System/total_time', time.time() - self.start_time, server_round)
+        self.writer.add_scalar('System/training_round_time', self.end_training_round - self.start_training_round, server_round)
 
         return loss_aggregated, metrics_aggregated
 

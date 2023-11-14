@@ -26,6 +26,7 @@ from .TensorboardStrategy import TensorboardStrategy
 from utils.clustering_fn import make_clusters, print_clusters, compute_clustering_acc
 
 import copy
+import time
 
 class IFCA(TensorboardStrategy):
     def __init__(
@@ -82,6 +83,8 @@ class IFCA(TensorboardStrategy):
         client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
+
+        self.start_training_round = time.time()
         
         if server_round == 1:
             self.init_scalars()
@@ -182,6 +185,8 @@ class IFCA(TensorboardStrategy):
             
         # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}
+
+        self.end_training_round = time.time()
         
         return self.parameters, metrics_aggregated
 
@@ -238,5 +243,6 @@ class IFCA(TensorboardStrategy):
             self.writer.add_scalar(f"Cluster/federated_accuracy_C{i}", np.average(accs), server_round)
 
         self.writer.add_scalar(f'Cluster/adjusted_rand_score', clustering_acc, server_round)
+        self.writer.add_scalar(f'System/training_round_time', self.end_training_round - self.start_training_round, server_round)
 
         return loss_aggregated, metrics_aggregated
