@@ -65,69 +65,21 @@ def train_standard_classifier(model, train_dataloader, config, device=DEVICE, ar
             epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
 
 
-def train_regression(model, train_dataloader, config, device=DEVICE, args=None):
-    """Train the network on the training set."""
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    loss_func = nn.CrossEntropyLoss()
-
-    model.train()
-    for epoch in range(config["local_epochs"]):
-        train_loss = 0
-        classif_accuracy = 0
-        for batch, (images, labels) in enumerate(train_dataloader):
-            images = images.to(device) #[64, 1, 28, 28]
-            labels = labels.to(device)
-
-            # 1. Forward pass
-            log_probs = model(images)
-            
-            # 2. Calculate loss
-            loss = loss_func(log_probs, labels)
-            train_loss += loss.item()
-            classif_accuracy += accuracy_fn(labels, torch.argmax(log_probs, dim=1))
-
-            # 3. Zero grad
-            optimizer.zero_grad()
-
-            # 4. Backprop
-            loss.backward()
-
-            # 5. Step
-            optimizer.step()
-
-            if batch % 10 == 0:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch,
-                    batch * len(images),
-                    len(train_dataloader.dataset),
-                    100. * batch / len(train_dataloader),
-                    loss.item() / len(images)))
-                logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch,
-                    batch * len(images),
-                    len(train_dataloader.dataset),
-                    100. * batch / len(train_dataloader),
-                    loss.item() / len(images)))
-        print('====> Epoch: {} Average loss: {:.4f}\tClassifier Accuracy: {:.4f}'.format(
-            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
-            
-        logging.info('====> Epoch: {} Average loss: {:.4f}\tClassifier Accuracy: {:.4f}'.format(
-            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
-
-
-def test_standard_classifier(model, test_dataloader, test_percentage=1, device=DEVICE):
+def test_standard_classifier(model, test_dataloader, n_test_batches=None, device=DEVICE):
     #Sets the module in evaluation mode
     model.eval()
     test_loss = 0
     classif_accuracy = 0
     criterion = nn.CrossEntropyLoss()
-    stop_iteration = (len(test_dataloader) // (1/test_percentage)) or 1
+    if n_test_batches is None:
+        stop_iteration = -1
+    else:
+        stop_iteration = n_test_batches
     total_samples = 0
     print(f'Stop iteration: {stop_iteration}')
     with torch.inference_mode():
         for i, (X, y) in enumerate(test_dataloader):
-            if i > stop_iteration:
+            if i == stop_iteration:
                 break
             total_samples += len(X)
             X = X.to(device)
@@ -143,47 +95,9 @@ def test_standard_classifier(model, test_dataloader, test_percentage=1, device=D
     # test_loss /= len(test_dataloader.dataset)
     test_loss /= total_samples
     # classif_accuracy /= len(test_dataloader)
-    classif_accuracy /= stop_iteration
+    classif_accuracy /= abs(stop_iteration)
     print('====> Test set loss: {:.4f}'.format(test_loss))
     return test_loss, classif_accuracy
-
-
-def test_regression(model, test_dataloader, device=DEVICE):
-    #Sets the module in evaluation mode
-    model.eval()
-    loss_fn = nn.CrossEntropyLoss()
-    test_loss = 0
-    classif_accuracy = 0
-    with torch.inference_mode():
-        for i, (X, y) in enumerate(test_dataloader):
-            X = X.to(device)
-            y = y.to(device)
-            # 1. Forward pass
-            log_probs = model(X)
-
-            # 2. Loss
-            loss = loss_fn(log_probs, y)
-            test_loss += loss.item()
-            classif_accuracy += accuracy_fn(y, torch.argmax(log_probs, dim=1))
-
-
-    test_loss /= len(test_dataloader.dataset)
-    print('====> Test set loss: {:.4f}'.format(test_loss))
-    return test_loss, classif_accuracy/len(test_dataloader)
-
-
-def loss_fn(recon, x, mu, logvar, c_out, y_onehot, loss=torch.nn.BCELoss, device=DEVICE):
-    y_onehot1 = y_onehot.type(torch.FloatTensor).to(device)
-    classif_loss = loss()(c_out, y_onehot1)
-    BCE = F.binary_cross_entropy(recon, x, reduction='sum')
-    KLD = -0.5*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
-    return classif_loss+BCE+KLD, classif_loss, BCE, KLD
-
-
-def loss_fn_standard_classifier(c_out, y_onehot, device=DEVICE):
-    y_onehot1 = y_onehot.type(torch.FloatTensor).to(device)
-    classif_loss = torch.nn.BCELoss()(c_out, y_onehot1)
-    return classif_loss
 
 
 def accuracy_fn(y_true, y_pred):
@@ -201,20 +115,22 @@ def accuracy_fn(y_true, y_pred):
     acc = (correct / len(y_pred)) * 100
     return acc
 
-def train(model, trainloader):
+
+def train_autoencoder(model, trainloader, config, device=DEVICE):
     params = model.parameters()
     optim = torch.optim.Adam(params, lr=1e-3)
-    train_loss = 0
-    for epochs in range(10):
+    criterion = nn.MSELoss()
+    for epochs in range(config["local_epochs"]):
+        train_loss = 0
         for batch, (x,y) in enumerate(trainloader):
             x = x.to(device)
             y = y.to(device)
             # 1. Forward pass
-            x = x.view(-1, 3, 32, 32)
             recon_batch = model(x)
             
             # 2. Calculate loss
-            loss = F.binary_cross_entropy(recon_batch, x, reduction='sum')
+            loss = criterion(recon_batch, x)
+            
             train_loss += loss.item()
 
             # 3. Zero grad
@@ -225,30 +141,5 @@ def train(model, trainloader):
 
             # 5. Step
             optim.step()
+        print('train_loss: ', train_loss / len(trainloader))
         print(f'epoch {epochs} completed !')
-
-
-def train_autoencoder(model, trainloader, epochs):
-    params = model.parameters()
-    optim = torch.optim.Adam(params, lr=1e-3)
-    train_loss = 0
-    for epochs in range(epochs):
-        for batch, (x,y) in enumerate(trainloader):
-            x = x.to(device)
-            y = y.to(device)
-            # 1. Forward pass
-            x = x.view(-1, 3, 32, 32)
-            recon_batch = model(x)
-            
-            # 2. Calculate loss
-            loss = F.binary_cross_entropy(recon_batch, x, reduction='sum')
-            train_loss += loss.item()
-
-            # 3. Zero grad
-            optim.zero_grad()
-
-            # 4. Backprop
-            loss.backward()
-
-            # 5. Step
-            optim.step()

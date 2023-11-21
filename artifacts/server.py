@@ -182,6 +182,17 @@ if __name__ == "__main__":
 			total_num_clients=args["total_num_clients"],
 			transforms=args["transforms"]
 		)
+	elif args['strategy'] == "ae-pretraining":
+		strategy = TensorboardStrategy(
+			min_fit_clients=args["min_fit_clients"],
+			min_available_clients=args["min_available_clients"],
+			fraction_fit=args["fraction_fit"],
+			fraction_evaluate=fraction_eval,
+			writer=writer,
+			on_fit_config_fn=fit_config,
+			total_num_clients=args["total_num_clients"],
+			transforms=args["transforms"]
+		)
 	elif args['strategy'] == "testencoding":
 		strategy = ClusterEmbeddings(
 			min_fit_clients=args["min_fit_clients"],

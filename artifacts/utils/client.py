@@ -9,7 +9,7 @@ import torch
 import torchvision.transforms as transforms
 
 from utils.transforms import Rotate, LabelFlip, Invert, Equalize
-from utils.function import train_standard_classifier, test_standard_classifier
+from utils.function import train_standard_classifier, test_standard_classifier, train_autoencoder
 from utils.clustering_fn import compute_low_dims_per_class
 from utils.datasets import load_partition
 from utils.partition import Partition, FolderPartition
@@ -167,7 +167,7 @@ class IFCAClient(StandardClient):
         id = 0
         for i in range(n_clusters):
             self.set_parameters(parameters[:n_base_layers] + parameters[n_base_layers:][n_pers_layers*i : n_pers_layers*(i+1)])
-            loss, accuracy = test_standard_classifier(self.model, self.trainloader, test_percentage=0.2, device=DEVICE)
+            loss, accuracy = test_standard_classifier(self.model, self.trainloader, n_test_batches=1, device=DEVICE)
             if i==0:
                 best_loss = loss
             elif loss < best_loss:
@@ -175,6 +175,28 @@ class IFCAClient(StandardClient):
                 id = i
 
         return id
+
+
+class AETrainerClient(StandardClient):
+    def __init__(self, model, trainloader=None, valloader=None, sim=True, args={}):
+        super(AETrainerClient, self).__init__(model, trainloader, valloader, sim, args)
+
+    def fit(self, parameters, config):
+        if self.sim:
+            self.transform = config['transform']
+            self.load_partition(partition=config['partition'], transform_instruction=config['transform'])
+
+        # local training
+        self.set_parameters(parameters)
+        train_autoencoder(self.model, self.trainloader, config=config, device=DEVICE)
+        
+        params = self.get_parameters()
+
+        return params, len(self.trainloader), {"transform": self.transform}
+
+    def evaluate(self, parameters, config):
+        print(f"SKIP evaluation")
+        return 0.0, len(self.valloader), {"accuracy": 1.0}
 
 
 
@@ -195,7 +217,7 @@ def load_transform(transform_instruction):
         transform = transforms.Compose([Rotate(180), transforms.ToTensor()])
     elif transform_instruction == "rotate270":
         transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
-    elif transform_instruction == "pacs":
+    elif transform_instruction.startswith("pacs"):
         transform = None
     else:
         transform = transforms.Compose([transforms.ToTensor()])

@@ -40,19 +40,6 @@ class FolderPartition(Dataset):
     def __init__(self, data, targets, transform = None):
         self.loader = default_loader
         self.data = data
-        # count_img = 0
-        # count_path = 0
-        # for path in data:
-        #     # print(path)
-        #     if type(path) == str:
-        #         self.data.append(self.loader(path))
-        #         count_path += 1
-        #     if type(path) == PIL.Image.Image:
-        #         count_img += 1
-        # if count_path > 0:
-        #     print('path: ', count_path)
-        # if count_img > 0:
-        #     print('img: ', count_img)
         self.targets = targets
         self.transform = transform
         self.target_transform = None

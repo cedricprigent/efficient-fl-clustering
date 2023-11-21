@@ -10,6 +10,7 @@ import numpy as np
 import random
 import copy
 import time
+import torch
 
 from flwr.common import (
     Code,
@@ -21,6 +22,7 @@ from flwr.common import (
     Parameters,
     ReconnectIns,
     Scalar,
+    parameters_to_ndarrays,
 )
 
 
@@ -52,7 +54,7 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         self.total_num_clients = total_num_clients
         self.transform_assignments = self.build_transform_assignments(total_num_clients, transforms)
         self.encountered_clients = [False for _ in range(total_num_clients)]
-        random.seed(0)
+        self.rng = random.Random(0)
 
     def configure_fit(
         self, server_round, parameters, client_manager
@@ -97,6 +99,7 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         """Aggregate fit results."""
 
         params, metrics = super().aggregate_fit(server_round, results, failures)
+        torch.save(parameters_to_ndarrays(params), './pre-trained/params.pt')
         self.end_training_round = time.time()
 
         return params, metrics
@@ -150,14 +153,20 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
     def build_transform_assignments(self, n_clients, transforms):
         transform_assignments = []
         n_transforms = len(transforms)
-        for i in range(n_clients):
-            transform_assignments.append(transforms[i%n_transforms])
+        if transforms[0] == 'pacs':
+            n_clients_per_domain = n_clients // 4
+            for i in range(4):
+                for j in range(n_clients_per_domain):
+                    transform_assignments.append(f'pacs-{i}')
+        else:
+            for i in range(n_clients):
+                transform_assignments.append(transforms[i%n_transforms])
         return transform_assignments
 
 
     def set_client_partitions(self, total_num_clients, sample_size, server_round):
         partitions_conf = []
-        partitions = random.sample(range(total_num_clients), sample_size)
+        partitions = self.rng.sample(range(total_num_clients), sample_size)
         for partition_idx in partitions:
             config = {}
             config["partition"] = partition_idx

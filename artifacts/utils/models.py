@@ -78,27 +78,6 @@ class Classifier(nn.Module):
         self.load_state_dict(state_dict, strict=True)
 
 
-
-class LogisticRegression(nn.Module):
-    def __init__(self, input_size, num_classes):
-        super(LogisticRegression, self).__init__()
-        self.linear = nn.Linear(input_size, num_classes)
-        self.input_size = input_size
-    
-    def forward(self, inputs, device=DEVICE):
-        x = inputs.to(device)
-        x = x.view(-1, self.input_size)
-        out = self.linear(x)
-        return out
-
-    def set_weights(self, weights):
-        """Set model weights from a list of NumPy ndarrays."""
-        state_dict = OrderedDict(
-            {k: torch.tensor(v) for k, v in zip(self.state_dict().keys(), weights)}
-        )
-        self.load_state_dict(state_dict, strict=True)
-
-
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
@@ -218,6 +197,8 @@ class ResNet9(nn.Module):
 class AutoEncoder(torch.nn.Module):
     def __init__(self, n_channels, im_size, z_dim, hidden_dim):
         super().__init__()
+        self.n_channels = n_channels
+        self.im_size = im_size
         
         self.encoder = torch.nn.Sequential(
             torch.nn.Flatten(),
@@ -234,7 +215,7 @@ class AutoEncoder(torch.nn.Module):
         )
     def forward(self, x):
         encoded = self.encoder(x)
-        decoded = torch.reshape(self.decoder(encoded), (-1, n_channels, im_size, im_size))
+        decoded = torch.reshape(self.decoder(encoded), (-1, self.n_channels, self.im_size, self.im_size))
         return decoded
 
 
@@ -271,93 +252,6 @@ class Conv_AE(nn.Module):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
         return decoded
-        
-
-class Feature_embedding(nn.Module):
-
-    def __init__(self, input_h=28, in_channels=1, num_classes=10):
-        super(Feature_embedding, self).__init__()
-        
-        # conv_maxpool_output = (input_h - kernel_size + 1) / 2 
-        features_output_h = int((((input_h - 4)/2) - 4)/2)
-        features_output_size = features_output_h * features_output_h
-
-        self.in_channels = in_channels
-        self.num_classes = num_classes
-
-        self.features = nn.Sequential(
-            
-            nn.Conv2d(in_channels, 16*in_channels, kernel_size=5),
-            nn.Tanh(),
-            nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(16*in_channels, 32*in_channels, kernel_size=5),
-            nn.Tanh(),
-            nn.MaxPool2d(kernel_size=2)
-        )
-
-        self.classifier = nn.Sequential(
-            nn.Linear(features_output_size*32*in_channels, 120*in_channels),
-            nn.Tanh(),
-            nn.Linear(120*in_channels, 84*in_channels),
-            nn.Tanh(),
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-
-
-class EncoderNet(nn.Module):
-    def __init__(self):
-        super(EncoderNet, self).__init__()
-        self.convnet = nn.Sequential(nn.Conv2d(1, 32, 5), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2),
-                                     nn.Conv2d(32, 64, 5), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2))
-        self.fc = nn.Sequential(nn.Linear(64 * 4 * 4, 256),
-                                nn.PReLU(),
-                                nn.Linear(256, 256),
-                                nn.PReLU(),
-                                nn.Linear(256, 2)
-                                )
-
-    def forward(self, x):
-        output = self.convnet(x)
-        # print(f'after convnet' + str(output.size()))
-        output = output.view(output.size()[0], -1)
-        output = self.fc(output)
-        return output
-
-    def get_encoding(self, x):
-        return self.forward(x)
-
-
-class EncoderNet_Cifar(nn.Module):
-    def __init__(self):
-        super(EncoderNet_Cifar, self).__init__()
-        self.convnet = nn.Sequential(nn.Conv2d(3, 64, 6), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2),
-                                     nn.Conv2d(64, 128, 6), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2))
-
-        self.fc = nn.Sequential(nn.Linear(128 * 4 * 4, 256),
-                                nn.ReLU(),
-                                nn.Linear(256, 256),
-                                nn.ReLU(),
-                                nn.Linear(256, 20)
-                                )
-
-    def forward(self, x):
-        output = self.convnet(x)
-        # print(f'after convnet' + str(output.size()))
-        output = output.view(output.size()[0], -1)
-        output = self.fc(output)
-        return output
-
-    def get_encoding(self, x):
-        return self.forward(x)
 
 
 def weight_reset(m):
