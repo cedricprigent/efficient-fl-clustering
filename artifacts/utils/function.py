@@ -73,8 +73,10 @@ def test_standard_classifier(model, test_dataloader, n_test_batches=None, device
     criterion = nn.CrossEntropyLoss()
     if n_test_batches is None:
         stop_iteration = -1
+        n_batches = len(test_dataloader)
     else:
         stop_iteration = n_test_batches
+        n_batches = n_test_batches
     total_samples = 0
     print(f'Stop iteration: {stop_iteration}')
     with torch.inference_mode():
@@ -95,7 +97,7 @@ def test_standard_classifier(model, test_dataloader, n_test_batches=None, device
     # test_loss /= len(test_dataloader.dataset)
     test_loss /= total_samples
     # classif_accuracy /= len(test_dataloader)
-    classif_accuracy /= abs(stop_iteration)
+    classif_accuracy /= n_batches
     print('====> Test set loss: {:.4f}'.format(test_loss))
     return test_loss, classif_accuracy
 
