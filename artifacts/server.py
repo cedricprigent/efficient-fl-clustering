@@ -15,7 +15,7 @@ import json
 import traceback
 
 from utils.datasets import load_data
-from utils.models import LeNet_5, ResNet9, weight_reset
+from utils.models import LeNet_5, weight_reset
 from torchvision.models import resnet18
 from utils.app import Clustering_Server, Server
 from flwr.server.client_manager import SimpleClientManager
@@ -26,6 +26,7 @@ from strategies.Krum import Krum
 from strategies.TestEncoding import TestEncoding
 from strategies.ClusterEmbeddings import ClusterEmbeddings
 from strategies.IFCA import IFCA
+from strategies.AEPreTraining import AEPreTraining
 
 torch.manual_seed(0)
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
@@ -55,7 +56,7 @@ if __name__ == "__main__":
 		"--strategy", type=str, default="testencoding", help="Set of strategies: fedavg, testencoding, fedmedian, krum"
 	)
 	parser.add_argument(
-		"--model", type=str, default="cnn", help="Model to train: cnn, resnet9"
+		"--model", type=str, default="lenet5", help="Model to train: lenet5, resnet18"
 	)
 	parser.add_argument(
 		"--server_address", type=str, required=False, default="127.0.0.1:8080", help="gRPC server address"
@@ -128,14 +129,13 @@ if __name__ == "__main__":
 	
 	# Global Model
 	if args['strategy'] == "testencoding" or args['strategy'] == "ifca":
-		if args["model"] == "cnn":
+		if args["model"] == "lenet5":
 			n_base_layers = 4
 			model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to('cpu')
-		elif args["model"] == "resnet9":
+		elif args["model"] == "resnet18":
 			# n_base_layers = 90
 			# n_base_layers = 120 # max base
 			n_base_layers = 0
-			# model = ResNet9(in_channels=n_channels).to('cpu')
 			model = resnet18().to('cpu')
 			model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to('cpu')
 		else:
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 			transforms=args["transforms"]
 		)
 	elif args['strategy'] == "ae-pretraining":
-		strategy = TensorboardStrategy(
+		strategy = AEPreTraining(
 			min_fit_clients=args["min_fit_clients"],
 			min_available_clients=args["min_available_clients"],
 			fraction_fit=args["fraction_fit"],
@@ -191,7 +191,8 @@ if __name__ == "__main__":
 			writer=writer,
 			on_fit_config_fn=fit_config,
 			total_num_clients=args["total_num_clients"],
-			transforms=args["transforms"]
+			transforms=args["transforms"],
+			dataset=args["dataset"]
 		)
 	elif args['strategy'] == "testencoding":
 		strategy = ClusterEmbeddings(

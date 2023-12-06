@@ -8,7 +8,7 @@ import logging
 import flwr as fl
 
 from utils.datasets import load_partition
-from utils.models import LeNet_5, ResNet9, AutoEncoder, Conv_AE
+from utils.models import LeNet_5, AutoEncoder, Conv_AE
 from torchvision.models import resnet18
 from utils.partition import Partition, FolderPartition
 from utils.client import StandardClient, EncodingClient, IFCAClient, AETrainerClient, load_partition
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model", type=str, default="cnn", help="Model to train: cnn, resnet9"
+        "--model", type=str, default="lenet5", help="Model to train: lenet5, resnet18"
     )
     parser.add_argument(
         "--num", type=int, required=False, default=0, help="client number"
@@ -89,10 +89,11 @@ if __name__ == "__main__":
             state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
-        elif args["compression"] == 'Cifar100':
-            z_dim = 768
-            ae = Conv_AE().to(DEVICE)
-            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/cifar100/ae.pt", map_location=torch.device(DEVICE)))
+        elif args["compression"] == 'FashionMNIST':
+            z_dim = 50
+            hidden_dim = 100
+            ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/fashion-mnist/ae.pt", map_location=torch.device(DEVICE)))
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         if args["compression"] == 'AE':
             z_dim = 768
             ae = Conv_AE().to(DEVICE)
-            state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
+            state_dict = load_params(f"{args['path_to_encoder_weights']}/{args['dataset']}/federated/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
         elif args["compression"] == 'Cifar100':
@@ -155,10 +156,11 @@ if __name__ == "__main__":
             state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
-        elif args["compression"] == 'Cifar100':
-            z_dim = 768
-            ae = Conv_AE().to(DEVICE)
-            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/cifar100/ae.pt", map_location=torch.device(DEVICE)))
+        elif args["compression"] == 'FashionMNIST':
+            z_dim = 50
+            hidden_dim = 100
+            ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
+            ae.load_state_dict(torch.load(f"{args['path_to_encoder_weights']}/fashion-mnist/ae.pt", map_location=torch.device(DEVICE)))
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
@@ -166,10 +168,9 @@ if __name__ == "__main__":
             raise NotImplementedError
 
 
-    if args["model"] == "cnn":
+    if args["model"] == "lenet5":
         model = LeNet_5(input_h=im_size, in_channels=n_channels, num_classes=n_classes).to(DEVICE)
-    elif args["model"] == "resnet9":
-        # model = ResNet9(in_channels=n_channels).to(DEVICE)
+    elif args["model"] == "resnet18":
         model = resnet18().to(DEVICE)
         model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to(DEVICE)
     elif args["model"] == "ae":

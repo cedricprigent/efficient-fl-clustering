@@ -58,7 +58,6 @@ class StandardClient(fl.client.NumPyClient):
         return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
 
     def load_partition(self, partition, transform_instruction):
-        print(f"Loading partition {partition} with transform {transform_instruction}")
         transform, target_transform = load_transform(transform_instruction)
         self.trainloader, self.valloader, _ = load_partition(partition, batch_size, transform=transform, target_transform=target_transform)
 
@@ -77,7 +76,6 @@ class EncodingClient(StandardClient):
                 partitions = config['partition'].split(',')
                 transforms = config['transform'].split(',')
                 for partition, transform in zip(partitions, transforms):
-                    print(f"Generating low dim for partition: {partition}")
                     self.load_partition(partition=partition, transform_instruction=transform)
                     ld = self.compute_low_dim()
                     low_dims.append(ld)
@@ -218,6 +216,8 @@ def load_transform(transform_instruction):
     elif transform_instruction == "rotate270":
         transform = transforms.Compose([Rotate(270), transforms.ToTensor()])
     elif transform_instruction.startswith("pacs"):
+        transform = None
+    elif transform_instruction == "femnist":
         transform = None
     else:
         transform = transforms.Compose([transforms.ToTensor()])

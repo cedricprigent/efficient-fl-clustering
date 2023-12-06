@@ -1,0 +1,21 @@
+{
+    "dataset": "mnist",
+    "strategy": "ae-pretraining",
+    "client": "AETrainerClient",
+    "sim": "True",
+    "model": "ae",
+    "compression": "AE",
+    "path_to_encoder_weights": "./pre-trained",
+    "num_rounds": 20,
+    "total_num_clients": 100,
+    "n_clusters": 4,
+    "transforms": ["none", "rotate90", "rotate180", "rotate270"],
+    "transforms_c": ["none", "label_flip_1", "label_flip_2", "label_flip_3"],
+    "transforms_p": ["pacs"],
+    "transforms_f": ["none"],
+    "min_available_clients": 4,
+    "min_fit_clients": 4,
+    "fraction_fit": 1,
+    "local_epochs": 3,
+    "randomized_quantization": 0.0
+}

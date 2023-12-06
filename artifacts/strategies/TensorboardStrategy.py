@@ -99,7 +99,6 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         """Aggregate fit results."""
 
         params, metrics = super().aggregate_fit(server_round, results, failures)
-        torch.save(parameters_to_ndarrays(params), './pre-trained/params.pt')
         self.end_training_round = time.time()
 
         return params, metrics
@@ -176,9 +175,10 @@ class TensorboardStrategy(fl.server.strategy.FedAvg):
         for partition_idx in partitions:
             self.encountered_clients[partition_idx] = True
 
-        self.writer.add_scalar("Training/total_num_clients", total_num_clients, server_round)
-        self.writer.add_scalar("Training/total_num_sampled", sample_size, server_round)
-        self.writer.add_scalar("Training/total_num_met", self.encountered_clients.count(True), server_round)
+        if self.writer is not None:
+            self.writer.add_scalar("Training/total_num_clients", total_num_clients, server_round)
+            self.writer.add_scalar("Training/total_num_sampled", sample_size, server_round)
+            self.writer.add_scalar("Training/total_num_met", self.encountered_clients.count(True), server_round)
 
         return partitions_conf
 

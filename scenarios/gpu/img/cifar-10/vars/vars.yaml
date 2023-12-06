@@ -2,7 +2,7 @@
 dataset: 'cifar10'
 strategy: 'testencoding'
 client: 'EncodingClient'
-model: 'resnet9'
+model: 'resnet18'
 compression: 'AE'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.1

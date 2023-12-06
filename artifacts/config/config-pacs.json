@@ -1,0 +1,18 @@
+{
+    "dataset": "pacs",
+    "strategy": "testencoding",
+    "client": "EncodingClient",
+    "sim": "True",
+    "model": "resnet18",
+    "compression": "AE",
+    "path_to_encoder_weights": "./pre-trained",
+    "num_rounds": 20,
+    "total_num_clients": 40,
+    "n_clusters": 4,
+    "transforms": ["pacs"],
+    "min_available_clients": 4,
+    "min_fit_clients": 4,
+    "fraction_fit": 1,
+    "local_epochs": 3,
+    "randomized_quantization": 0.0
+}

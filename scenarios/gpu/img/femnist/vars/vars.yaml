@@ -2,19 +2,20 @@
 dataset: 'femnist'
 strategy: 'testencoding'
 client: 'EncodingClient'
-model: 'cnn'
+model: 'lenet5'
 compression: 'AE'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.2
 
 # Server args
-num_rounds: 1000
+num_rounds: 500
 total_num_clients: 3550
 min_available_clients: 100
 min_fit_clients: 100
 fraction_fit: 1
 local_epochs: 5
 n_clusters: 3
+transforms: 'femnist'
 
 # Deployment
 n_client_server_node: 30
