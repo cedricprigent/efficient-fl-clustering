@@ -3,7 +3,7 @@ dataset: 'pacs'
 strategy: 'testencoding'
 client: 'EncodingClient'
 model: 'resnet18'
-compression: 'AE'
+compression: 'Cifar100'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.1
 

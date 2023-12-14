@@ -1,11 +1,11 @@
 # Scenario
 dataset: 'femnist'
-strategy: 'fedavg'
-client: 'StandardClient'
+strategy: 'testencoding'
+client: 'EncodingClient'
 model: 'lenet5'
-compression: 'None'
+compression: 'FashionMNIST'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
-randomized_quantization: 0.0
+randomized_quantization: 0.2
 
 # Server args
 num_rounds: 500

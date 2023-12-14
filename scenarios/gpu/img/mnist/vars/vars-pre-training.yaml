@@ -3,9 +3,9 @@ dataset: 'mnist'
 strategy: 'ae-pretraining'
 client: 'AETrainerClient'
 model: 'ae'
-compression: 'AE'
+compression: 'None'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
-randomized_quantization: 0.2
+randomized_quantization: 0.0
 
 # Server args
 num_rounds: 10

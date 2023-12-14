@@ -3,9 +3,9 @@ dataset: 'pacs'
 strategy: 'testencoding'
 client: 'EncodingClient'
 model: 'resnet18'
-compression: 'AE'
+compression: 'StyleExtraction'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
-randomized_quantization: 0.1
+randomized_quantization: 0.0
 
 # Server args
 num_rounds: 100

@@ -1,19 +1,19 @@
 # Scenario
 dataset: 'mnist'
-strategy: 'ae-pretraining'
-client: 'AETrainerClient'
-model: 'ae'
-compression: 'AE'
+strategy: 'testencoding'
+client: 'EncodingClient'
+model: 'lenet5'
+compression: 'FashionMNIST'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
 randomized_quantization: 0.2
 
 # Server args
-num_rounds: 10
+num_rounds: 50
 total_num_clients: 100
 min_available_clients: 50
 min_fit_clients: 50
 fraction_fit: 1
-local_epochs: 3
+local_epochs: 5
 n_clusters: 4
 transforms: 'none,rotate90,rotate180,rotate270'
 

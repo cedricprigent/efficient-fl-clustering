@@ -1,7 +1,7 @@
 # Scenario
 dataset: 'femnist'
-strategy: 'fedavg'
-client: 'StandardClient'
+strategy: 'ifca'
+client: 'IFCAClient'
 model: 'lenet5'
 compression: 'None'
 path_to_encoder_weights: '/app/artifacts/pre-trained'
