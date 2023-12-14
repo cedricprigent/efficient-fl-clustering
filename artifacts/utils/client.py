@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from typing import List, Tuple
+import os
 
 import numpy as np
 import flwr as fl
@@ -13,6 +14,19 @@ from utils.function import train_standard_classifier, test_standard_classifier, 
 from utils.clustering_fn import compute_low_dims_per_class
 from utils.datasets import load_partition
 from utils.partition import Partition, FolderPartition
+
+from flwr.common import (
+    Code,
+    DisconnectRes,
+    EvaluateIns,
+    EvaluateRes,
+    FitIns,
+    FitRes,
+    Parameters,
+    ReconnectIns,
+    Scalar,
+    parameters_to_ndarrays,
+)
 
 torch.manual_seed(0)
 DEVICE='cuda' if torch.cuda.is_available() else 'cpu'
@@ -178,6 +192,9 @@ class IFCAClient(StandardClient):
 class AETrainerClient(StandardClient):
     def __init__(self, model, trainloader=None, valloader=None, sim=True, args={}):
         super(AETrainerClient, self).__init__(model, trainloader, valloader, sim, args)
+        self.dataset = args['dataset']
+        self.save_path = f'{args["path_to_encoder_weights"]}/{self.dataset}/federated'
+        os.makedirs(self.save_path, exist_ok=True)
 
     def fit(self, parameters, config):
         if self.sim:
@@ -194,6 +211,8 @@ class AETrainerClient(StandardClient):
 
     def evaluate(self, parameters, config):
         print(f"SKIP evaluation")
+        self.set_parameters(parameters)
+        torch.save(self.get_parameters(), f'{self.save_path}/params.pt')
         return 0.0, len(self.valloader), {"accuracy": 1.0}
 
 

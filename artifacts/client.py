@@ -86,7 +86,7 @@ if __name__ == "__main__":
             z_dim = 50
             hidden_dim = 100
             ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
-            state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
+            state_dict = load_params(f"{args['path_to_encoder_weights']}/mnist/federated/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
         elif args["compression"] == 'FashionMNIST':
@@ -97,8 +97,6 @@ if __name__ == "__main__":
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
-        else:
-            raise NotImplementedError
 
     
     elif args["dataset"] == "cifar10":
@@ -109,7 +107,7 @@ if __name__ == "__main__":
         if args["compression"] == 'AE':
             z_dim = 768
             ae = Conv_AE().to(DEVICE)
-            state_dict = load_params(f"{args['path_to_encoder_weights']}/{args['dataset']}/federated/params.pt", ae)
+            state_dict = load_params(f"{args['path_to_encoder_weights']}/cifar10/federated/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
         elif args["compression"] == 'Cifar100':
@@ -119,8 +117,6 @@ if __name__ == "__main__":
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 20
-        else:
-            raise NotImplementedError
 
     elif args["dataset"] == "pacs":
         n_channels = 3
@@ -130,7 +126,7 @@ if __name__ == "__main__":
         if args["compression"] == 'AE':
             z_dim = 3072
             ae = Conv_AE().to(DEVICE)
-            state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
+            state_dict = load_params(f"{args['path_to_encoder_weights']}/pacs/federated/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
         elif args["compression"] == 'Cifar100':
@@ -140,8 +136,6 @@ if __name__ == "__main__":
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 20
-        else:
-            raise NotImplementedError
 
 
     elif args["dataset"] == "femnist":
@@ -153,7 +147,7 @@ if __name__ == "__main__":
             z_dim = 50 
             hidden_dim = 100
             ae = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
-            state_dict = load_params(f"{args['path_to_encoder_weights']}/params.pt", ae)
+            state_dict = load_params(f"{args['path_to_encoder_weights']}/femnist/federated/params.pt", ae)
             ae.load_state_dict(state_dict)
             encoder = ae.encoder
         elif args["compression"] == 'FashionMNIST':
@@ -164,8 +158,6 @@ if __name__ == "__main__":
             encoder = ae.encoder
         elif args["compression"] == 'StyleExtraction':
             z_dim = 2
-        else:
-            raise NotImplementedError
 
 
     if args["model"] == "lenet5":
@@ -175,6 +167,8 @@ if __name__ == "__main__":
         model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to(DEVICE)
     elif args["model"] == "ae":
         if args["dataset"] == "mnist" or args["dataset"] == "femnist":
+            z_dim = 50
+            hidden_dim = 100
             model = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
         else:
             model = Conv_AE().to(DEVICE)

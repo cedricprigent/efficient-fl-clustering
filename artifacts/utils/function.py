@@ -18,6 +18,7 @@ def train_standard_classifier(model, train_dataloader, config, device=DEVICE, ar
 
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    drop_batch = 0
     model.train()
     for epoch in range(config["local_epochs"]):
         train_loss = 0
@@ -25,6 +26,11 @@ def train_standard_classifier(model, train_dataloader, config, device=DEVICE, ar
         for batch, (images, labels) in enumerate(train_dataloader):
             images = images.to(device) #[64, 1, 28, 28]
             labels = labels.to(device)
+
+            # Drop batch if it contains only one sample for batch normalization
+            if images.shape[0] == 1:
+                drop_batch = 1
+                continue
 
             # 1. Forward pass
             c_out = model(images)
@@ -59,10 +65,10 @@ def train_standard_classifier(model, train_dataloader, config, device=DEVICE, ar
                     100. * batch / len(train_dataloader),
                     loss.item() / len(images)))
         print('====> Epoch: {} Average loss: {:.4f}\tClassifier Accuracy: {:.4f}'.format(
-            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
+            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/(len(train_dataloader) - drop_batch)))
             
         logging.info('====> Epoch: {} Average loss: {:.4f}\tClassifier Accuracy: {:.4f}'.format(
-            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/len(train_dataloader)))
+            epoch, train_loss / len(train_dataloader.dataset), classif_accuracy/(len(train_dataloader) - drop_batch)))
 
 
 def test_standard_classifier(model, test_dataloader, n_test_batches=None, device=DEVICE):

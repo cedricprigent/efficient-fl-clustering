@@ -49,6 +49,8 @@ def extract_style(batch, extractor, sample_size):
             return torch.rand(1, 25).numpy()
         if sample_size == 3072:
             return torch.rand(1, 147).numpy()
+        else:
+            return torch.rand(1, 507).numpy()
     else:
         styles = []
         for x in batch:
