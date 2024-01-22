@@ -1,11 +1,22 @@
-# G5K FL deployments
+# Efficient Resource-Constrained FL Clustering with Local Data Compression on the Edge-to-Cloud Continuum
 
-## Getting started
+This repository contains all artifacts, notebooks and log files used for the paper [Efficient Resource-Constrained FL Clustering with Local Data Compression on the Edge-to-Cloud Continuum].
+
+The repository is organized as follows:
+- [artifacts](artifacts) contains all artifacts (i.e., source codes) used for deploying experimental evaluation of our clustering approach.
+  - Additional instructions for local deployment of experiments are provided in this folder.
+- [paper/logs](paper/logs) contains logs from evaluation experiments.
+- [paper/notebooks](paper/notebooks) contains notebooks used to retrieve results from log files and generate figures.
+- [scenarios](scenarios) contains configuration files for evaluation scenarios deployed with E2Clab on the Grid'5000 testbed.
+
+
+
+## Deploying experiments on Grid'5000
 
 ### Installing E2Clab on Grid'5000
 [E2Clab documentation](https://e2clab.gitlabpages.inria.fr/e2clab/index.html)
 
-From a Grid'5000 front-end (for instance lille.grid5000.fr)
+From a Grid'5000 front-end (lille.grid5000.fr)
 ```shell
 # from the G5K frontend
 $ ssh lille.grid5000.fr
@@ -21,7 +32,7 @@ $ pip install -U -e .
 **Cloning the repository**
 ```shell
 # from the G5K frontend
-$ git clone https://gitlab.inria.fr/Kerdata/Kerdata-Codes/fl-base.git
+$ git clone https://gitlab.com/cedric.prigent/fl-clustering.git
 ```
 
 **Pull docker image**
@@ -54,31 +65,31 @@ $ nano fl-clustering/scenario/grid5000/workflow.yaml
 Reserving nodes and installing services
 ```shell
 # from the G5K frontend
-$ cd fl-base
-$ e2clab layers-services scenario/grid5000 artifacts
+$ cd fl-clusrering
+$ e2clab layers-services scenarios/gpu/img/mnist artifacts
 ```
 
 Configuring network
 ```shell
 # from the G5K frontend
-$ e2clab network scenario/grid5000
+$ e2clab network curent
 ```
 
 Workflow
 ```shell
 # from the G5K frontend
 # Prepare phase: build and run docker image, download dataset, prepare client partitions
-$ e2clab workflow scenario/grid5000 prepare
+$ e2clab workflow current prepare
 # Launch phase: start server and clients
-$ e2clab workflow scenario/grid5000 launch
+$ e2clab workflow current launch
 # Finalize phase (when experiments are finished): retrieve log files from docker container and save them to your G5K homedir
-$ e2clab workflow scenario/grid5000 finalize
+$ e2clab workflow current finalize
 ```
 
 ### Connecting to server node and inspecting log file
 ```shell
 # from the G5K frontend
-$ ssh root@chifflet-[server_id]
+$ ssh root@chifflot-[server_id]
 $ sudo docker exec -it fl-container bash
 $ cat log_traces.log
 ```
@@ -86,7 +97,7 @@ $ cat log_traces.log
 ### Visualize metrics from your laptop with TensorBoard
 ```shell
 # from your laptop
-$ bash tunnel.sh chifflet-[server_id]
+$ bash tunnel.sh chifflot-[server_id]
 ```
 
 ## Other commands and useful resources
