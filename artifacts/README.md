@@ -45,34 +45,34 @@ $ python3 server.py --config_file config/config-mnist.json
 $ python3 client.py --config_file config/config-mnist.json
 ```
 
+* Starting multiple federated clients
+```
+$ bash scripts/launch_clients.sh config/config-mnist.json
+```
+
 **Configuring experiments**
 
-We detail here the arguments to use for each strategy.
+We detail here the arguments to use for running each strategy.
 
-* AE pre-training strategy
-```json
-"strategy": "ae-pretraining"
-"client": "AETrainerClient"
-"compression": "None"
-```
-* Our clustering approach
-```json
-"strategy": "testencoding"
-"client": "EncodingClient"
-"compression": "AE" or "FashionMNIST" or "Cifar100"
-```
-* LADD
-```json
-"strategy": "testencoding"
-"client": "EncodingClient"
-"compression": "StyleExtraction"
-```
-* IFCA
-```json
-"strategy": "ifca"
-"client": "IFCAClient"
-"compression": "None"
-```
+|                   | strategy        | client              | compression |
+|-------------------|-----------------|---------------------|-------------|
+| AE Pretraining    | "ae-pretraining"| "AETrainerClient"   | "None"      |
+| Ours (federated)  | "testencoding"  | "EncodingClient"    | "AE"        |
+| Ours (centralized)| "testencoding"  | "EncodingClient"    | "FashionMNIST" or "Cifar100" |
+| IFCA              | "ifca"          | "IFCAClient"        | "None"      |
+| LADD              | "testencoding"  | "EncodingClient"    | "StyleExtraction" |
+
+
+**Configuration used for AE pre-training experiments**
+
+We detail here the arguments used for our AE pre-training experiments. 
+
+|          | Sampled clients | Number of rounds | Local epochs |
+|----------|-----------------|------------------|--------------|
+| MNIST    | 50              | 10               | 3            |
+| FEMNIST  | 75              | 20               | 3            |
+| CIFAR-10 | 50              | 10               | 1            |
+| PACS     | 20              | 30               | 3            |
 
 **Evaluating randomized quantization impacts on clustering**
 ```
