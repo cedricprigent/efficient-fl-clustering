@@ -14,5 +14,5 @@
     "min_fit_clients": 4,
     "fraction_fit": 1,
     "local_epochs": 3,
-    "randomized_quantization": 20.0
+    "randomized_quantization": 0.2
 }

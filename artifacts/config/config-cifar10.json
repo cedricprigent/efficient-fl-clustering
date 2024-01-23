@@ -4,9 +4,9 @@
     "client": "EncodingClient",
     "sim": "True",
     "model": "resnet18",
-    "compression": "AE",
+    "compression": "Cifar100",
     "path_to_encoder_weights": "./pre-trained",
-    "num_rounds": 20,
+    "num_rounds": 1,
     "total_num_clients": 100,
     "n_clusters": 4,
     "transforms": ["none", "label_flip_1", "label_flip_2", "label_flip_3"],
@@ -14,5 +14,5 @@
     "min_fit_clients": 4,
     "fraction_fit": 1,
     "local_epochs": 3,
-    "randomized_quantization": 0.0
+    "randomized_quantization": 0.1
 }
