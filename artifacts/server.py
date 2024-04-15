@@ -21,9 +21,6 @@ from utils.app import Clustering_Server, Server
 from flwr.server.client_manager import SimpleClientManager
 
 from strategies.TensorboardStrategy import TensorboardStrategy
-from strategies.FedMedian import FedMedian
-from strategies.Krum import Krum
-from strategies.TestEncoding import TestEncoding
 from strategies.ClusterEmbeddings import ClusterEmbeddings
 from strategies.IFCA import IFCA
 from strategies.AEPreTraining import AEPreTraining
@@ -53,7 +50,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument(
-		"--strategy", type=str, default="testencoding", help="Set of strategies: fedavg, testencoding, fedmedian, krum"
+		"--strategy", type=str, default="testencoding", help="Set of strategies: fedavg, testencoding"
 	)
 	parser.add_argument(
 		"--model", type=str, default="lenet5", help="Model to train: lenet5, resnet18"
@@ -221,24 +218,6 @@ if __name__ == "__main__":
 			total_num_clients=args["total_num_clients"],
 			transforms=args["transforms"],
 			n_base_layers=n_base_layers
-		)
-	elif args['strategy'] == "fedmedian":
-		strategy = FedMedian(
-			min_fit_clients=args["min_fit_clients"],
-			min_available_clients=args["min_available_clients"],
-			fraction_fit=args["fraction_fit"],
-			fraction_evaluate=fraction_eval,
-			writer=writer,
-			on_fit_config_fn=fit_config,
-		)
-	elif args['strategy'] == "krum":
-		strategy = Krum(
-			min_fit_clients=args["min_fit_clients"],
-			min_available_clients=args["min_available_clients"],
-			fraction_fit=args["fraction_fit"],
-			fraction_evaluate=fraction_eval,
-			writer=writer,
-			on_fit_config_fn=fit_config,
 		)
 
 	# Federation config
