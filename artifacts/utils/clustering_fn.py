@@ -6,6 +6,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.metrics.cluster import adjusted_rand_score
 import logging
 from utils.style_extraction import StyleExtractor
+from utils.kmeans_optim import XMeans, ElbowPointDiscrimant
 
 def select_samples(dataloader, label, device):
     chosen_indices = []
@@ -141,10 +142,18 @@ def make_clusters(low_dims, n_clusters, n_clients, kmeans_type='minibatch', kmea
             kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
         else:
             kmeans = kmeans.partial_fit(low_dims)
+    elif kmeans_type == 'xmeans':
+        kmeans = XMeans(low_dims)
+        kmeans.fit()
+        print('Estimated k:', kmeans.k)
+    elif kmeans_type == 'elbow':
+        kmeans = ElbowPointDiscrimant(low_dims)
+        kmeans.fit()
     else:
         kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
     centers = kmeans.cluster_centers_
     labels = kmeans.labels_
+    print('LABELS:', labels)
 
     return labels, centers, kmeans
 

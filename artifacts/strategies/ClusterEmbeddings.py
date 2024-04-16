@@ -225,7 +225,8 @@ class ClusterEmbeddings(TensorboardStrategy):
         # torch.save(tsne, '/home/cprigent/Documents/notebook/ML/PFL/tsne.pt')
 
         # Building clusters
-        self.cluster_labels, self.cluster_centers, _ = make_clusters(low_dims, n_clusters=self.n_clusters, n_clients=len(low_dims), kmeans_type='kmeans')
+        self.cluster_labels, self.cluster_centers, _ = make_clusters(low_dims, n_clusters=self.n_clusters, n_clients=len(low_dims), kmeans_type='elbow')
+        self.n_clusters = len(self.cluster_centers)
         # torch.save(self.cluster_labels, '/home/cprigent/Documents/notebook/ML/PFL/labels.pt')
 
         print_clusters(self.cluster_labels, self.cluster_truth, n_clusters=self.n_clusters)
