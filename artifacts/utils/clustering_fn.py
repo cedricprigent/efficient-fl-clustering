@@ -1,12 +1,14 @@
 import torch
 import numpy as np
 from random import random
-from sklearn.cluster import MiniBatchKMeans, KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.cluster import MiniBatchKMeans, KMeans, AgglomerativeClustering
+from sklearn.metrics import calinski_harabasz_score
 from sklearn.metrics.cluster import adjusted_rand_score
+from bayes_opt import BayesianOptimization
 import logging
 from utils.style_extraction import StyleExtractor
-from utils.kmeans_optim import XMeans, ElbowPointDiscrimant
+from utils.kmeans_optim import XMeans, ElbowPointDiscrimant, GMeans, InterIntraClusterDistance
+from functools import partial
 
 def select_samples(dataloader, label, device):
     chosen_indices = []
@@ -133,56 +135,100 @@ def discretize(contValue: torch.tensor, discValues: torch.tensor) -> torch.tenso
 
     return dt
 
-def make_clusters(low_dims, n_clusters, n_clients, kmeans_type='minibatch', kmeans=None, find_optimal=False):
-    if find_optimal:
-        optim_clusters = find_optimal_clustering(low_dims, n_clusters)
-        print("Optimal number of clusters: ", optim_clusters)
-    if kmeans_type == 'minibatch':
+def make_clusters(low_dims, n_clusters, n_clients, clustering_strategy='minibatch', min_cluster_size=10, kmeans=None):
+    if clustering_strategy == 'minibatch':
         if kmeans is None:
-            kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
+            clustering = MiniBatchKMeans(n_clusters=n_clusters, n_init=10, batch_size=n_clients).partial_fit(low_dims)
         else:
-            kmeans = kmeans.partial_fit(low_dims)
-    elif kmeans_type == 'xmeans':
-        kmeans = XMeans(low_dims)
-        kmeans.fit()
-        print('Estimated k:', kmeans.k)
-    elif kmeans_type == 'elbow':
-        kmeans = ElbowPointDiscrimant(low_dims)
-        kmeans.fit()
+            clustering = kmeans.partial_fit(low_dims)
+    elif clustering_strategy == 'xmeans':
+        clustering = XMeans(low_dims)
+        clustering.fit()
+        print('Estimated k:', clustering.k)
+    elif clustering_strategy == 'elbow':
+        clustering = ElbowPointDiscrimant(low_dims)
+        clustering.fit()
+    elif clustering_strategy == 'gmeans':
+        clustering = GMeans(random_state=1010, strictness=4)
+        clustering.fit(low_dims)
+    elif clustering_strategy == 'inter_intra_cluster_distance':
+        clustering = InterIntraClusterDistance(low_dims)
+        clustering.fit()
+    elif clustering_strategy == 'agglomerative':
+
+        optimizer = BayesianOptimization(
+            f = partial(AC, low_dims, min_cluster_size),
+            pbounds = {'distance_threshold': (5, 100)},
+            random_state=1
+        )
+
+        optimizer.maximize(
+            init_points=10,
+            n_iter=5
+        )
+
+        opt_distance = optimizer.max['params']['distance_threshold']
+        best_clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=opt_distance, linkage='ward').fit(low_dims)
+
+        print('Selecting distance_threshold =', opt_distance)
+        centers = [0 for i in range(best_clustering.n_clusters_)]
+        labels = best_clustering.labels_
+        print('LABELS:', labels)
+
+        return labels, centers, best_clustering
     else:
-        kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
-    centers = kmeans.cluster_centers_
-    labels = kmeans.labels_
+        clustering = KMeans(n_clusters=n_clusters, n_init=10).fit(low_dims)
+
+    centers = clustering.cluster_centers_
+    labels = clustering.labels_
     print('LABELS:', labels)
 
-    return labels, centers, kmeans
+    return labels, centers, clustering
 
 
-def find_optimal_clustering(X, max_clusters):
-    optimal_number = 0
-    optimal_silhouette = -1
-    for i in range(2, max_clusters+1):
-        kmeans = KMeans(n_clusters=i)
-        cluster_labels = kmeans.fit_predict(X)
-        score = silhouette_score(X, cluster_labels)
-        print(f"n_clusters: {i} - score: {score}")
-        if score > optimal_silhouette:
-            optimal_number = i
-            optimal_silhouette = score
-    return optimal_number
+def AC(low_dims, min_size, distance_threshold):
+    clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=distance_threshold, linkage='ward').fit(low_dims)
+
+    label_dict = {}
+    for label in clustering.labels_:
+        if label in label_dict:
+            label_dict[label] += 1
+        else:
+            label_dict[label] = 1
+
+    minSizeCheck = True
+    for label in label_dict:
+        if label_dict[label] < min_size:
+            minSizeCheck = False
+
+    if minSizeCheck and len(label_dict) > 1:
+        score = calinski_harabasz_score(low_dims, clustering.labels_)
+    else:
+        score = 100
+
+    return -score
 
 
 def print_clusters(labels, cluster_truth, n_clusters):
     logging.basicConfig(filename="log_traces.log", level=logging.INFO)
+    cluster_sizes = [0 for i in range(n_clusters)]
+    verbose = len(labels) < 300
     for i in range(n_clusters):
         print(f'CLUSTER {i}:')
         logging.info(f'CLUSTER {i}:')
         for j in range(len(labels)):
             if labels[j] == i:
-                print(f"Client {j} - {cluster_truth[j]}")
-                logging.info(f"Client {j} - {cluster_truth[j]}")
-        print("####")
-        logging.info("####")
+                cluster_sizes[i] += 1
+                if verbose:
+                    print(f"Client {j} - {cluster_truth[j]}")
+                    logging.info(f"Client {j} - {cluster_truth[j]}")
+        if verbose:
+            print("####")
+            logging.info("####")
+    print('Cluster sizes:', cluster_sizes)
+    logging.info(f'Cluster sizes: {cluster_sizes}')
+    print("####")
+    logging.info("####")
 
 
 

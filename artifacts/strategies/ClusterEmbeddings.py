@@ -43,6 +43,8 @@ class ClusterEmbeddings(TensorboardStrategy):
         total_num_clients,
         transforms,
         n_base_layers,
+        clustering_strategy,
+        min_cluster_size,
         ):
 
         super().__init__(min_fit_clients=min_fit_clients, 
@@ -59,9 +61,9 @@ class ClusterEmbeddings(TensorboardStrategy):
         self.min_fit_clients = min_fit_clients
         self.n_base_layers = n_base_layers
         self.transforms = transforms
-
-        param = ndarrays_to_parameters([val.cpu().numpy() for _, val in model_init.items()])
-        self.parameters = [param for i in range(self.n_clusters)]
+        self.model_init = model_init
+        self.clustering_strategy = clustering_strategy
+        self.min_cluster_size = min_cluster_size
 
     def __repr__(self) -> str:
         return "ClusterEmbeddings"
@@ -128,6 +130,8 @@ class ClusterEmbeddings(TensorboardStrategy):
                 partition_conf["client_number"] = i
                 partition_conf.update(config)
                 partition = int(partition_conf["partition"])
+                print('Cluster labels', self.cluster_labels)
+                print('Selected partitions', partition)
                 fit_configurations.append((client, FitIns(self.parameters[self.cluster_labels[partition]], copy.deepcopy(partition_conf))))
 
             self.last_partitions_conf = partitions_conf
@@ -225,13 +229,24 @@ class ClusterEmbeddings(TensorboardStrategy):
         # torch.save(tsne, '/home/cprigent/Documents/notebook/ML/PFL/tsne.pt')
 
         # Building clusters
-        self.cluster_labels, self.cluster_centers, _ = make_clusters(low_dims, n_clusters=self.n_clusters, n_clients=len(low_dims), kmeans_type='elbow')
+        self.cluster_labels, self.cluster_centers, _ = make_clusters(low_dims, 
+                n_clusters=self.n_clusters, 
+                n_clients=len(low_dims), 
+                clustering_strategy=self.clustering_strategy,
+                min_cluster_size=self.min_cluster_size)
         self.n_clusters = len(self.cluster_centers)
+        self.writer.add_scalar(f"Cluster/n_clusters", self.n_clusters, server_round)
         # torch.save(self.cluster_labels, '/home/cprigent/Documents/notebook/ML/PFL/labels.pt')
 
         print_clusters(self.cluster_labels, self.cluster_truth, n_clusters=self.n_clusters)
+        print('K: ', len(self.cluster_centers))
 
         self.end_clustering = time.time()
+
+        # Initialize cluster models
+        param = ndarrays_to_parameters([val.cpu().numpy() for _, val in self.model_init.items()])
+        self.parameters = [param for i in range(self.n_clusters)]
+        self.model_init = None
 
 
     def set_model_parameters(self, model, parameters):
