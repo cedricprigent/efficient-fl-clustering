@@ -159,7 +159,8 @@ def make_clusters(low_dims, n_clusters, n_clients, clustering_strategy='minibatc
         optimizer = BayesianOptimization(
             f = partial(AC, low_dims, min_cluster_size),
             pbounds = {'distance_threshold': (5, 100)},
-            random_state=1
+            random_state=1,
+            allow_duplicate_points=True
         )
 
         optimizer.maximize(
