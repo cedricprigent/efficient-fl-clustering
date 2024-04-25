@@ -167,8 +167,8 @@ if __name__ == "__main__":
         model.fc = torch.nn.Linear(model.fc.in_features, n_classes).to(DEVICE)
     elif args["model"] == "ae":
         if args["dataset"] == "mnist" or args["dataset"] == "femnist":
-            z_dim = 50
-            hidden_dim = 100
+            z_dim = 20
+            hidden_dim = 50
             model = AutoEncoder(n_channels=n_channels, im_size=im_size, z_dim=z_dim, hidden_dim=hidden_dim).to(DEVICE)
         else:
             model = Conv_AE().to(DEVICE)
@@ -184,8 +184,11 @@ if __name__ == "__main__":
         trainloader = None
         testloader = None
     else:
-        transform, target_transform = load_transform(args["transform"])
-        trainloader, testloader, _ = load_partition(args["num"], batch_size, transform=transform, target_transform=target_transform)
+        if args["dataset"] == "femnist":
+            trainloader, testloader, _ = load_partition(args["num"], batch_size)
+        else:
+            transform, target_transform = load_transform(args["transform"])
+            trainloader, testloader, _ = load_partition(args["num"], batch_size, transform=transform, target_transform=target_transform)
 
     if args["client"] == "EncodingClient":
         args["z_dim"] = z_dim
