@@ -4,3 +4,5 @@ tensorboard
 flwr==1.1.0
 psutil
 scikit-learn
+bayesian-optimization
+pandas
