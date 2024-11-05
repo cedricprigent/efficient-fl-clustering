@@ -158,13 +158,13 @@ def make_clusters(low_dims, n_clusters, n_clients, clustering_strategy='minibatc
 
         optimizer = BayesianOptimization(
             f = partial(AC, low_dims, min_cluster_size),
-            pbounds = {'distance_threshold': (5, 100)},
+            pbounds = {'distance_threshold': (1, 100)},
             random_state=1,
             allow_duplicate_points=True
         )
 
         optimizer.maximize(
-            init_points=10,
+            init_points=30,
             n_iter=5
         )
 
@@ -187,7 +187,7 @@ def make_clusters(low_dims, n_clusters, n_clients, clustering_strategy='minibatc
     return labels, centers, clustering
 
 
-def AC(low_dims, min_size, distance_threshold):
+def AC(low_dims, min_size=2, distance_threshold=(1, 200)):
     clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=distance_threshold, linkage='ward').fit(low_dims)
 
     label_dict = {}
@@ -197,15 +197,15 @@ def AC(low_dims, min_size, distance_threshold):
         else:
             label_dict[label] = 1
 
-    minSizeCheck = True
+    min_size_check = True
     for label in label_dict:
         if label_dict[label] < min_size:
-            minSizeCheck = False
+            min_size_check = False
 
-    if minSizeCheck and len(label_dict) > 1:
+    if min_size_check and len(label_dict) > 2:
         score = calinski_harabasz_score(low_dims, clustering.labels_)
     else:
-        score = 100
+        score = 500
 
     return -score
 
