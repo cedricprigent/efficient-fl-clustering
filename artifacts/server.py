@@ -107,21 +107,25 @@ if __name__ == "__main__":
 		im_size = 28
 		input_size = n_channels*im_size*im_size
 		n_classes = 10
+		min_cluster_size = 10
 	elif args["dataset"] == "cifar10":
 		n_channels = 3
 		im_size = 32
 		input_size = n_channels*im_size*im_size
 		n_classes = 10
+		min_cluster_size = 10
 	elif args["dataset"] == "pacs":
 		n_channels = 3
 		im_size = 64
 		input_size = n_channels*im_size*im_size
 		n_classes = 7
+		min_cluster_size = 5
 	elif args["dataset"] == "femnist":
 		n_channels = 1
 		im_size = 28
 		input_size = n_channels*im_size*im_size
 		n_classes = 62
+		min_cluster_size = 100
 	
 	
 	# Global Model
@@ -143,6 +147,10 @@ if __name__ == "__main__":
 				raise
 
 	if args['strategy'] == "testencoding":
+		if args['compression'] == "StyleExtraction":
+			clustering_strategy = 'k-means'
+		else:
+			clustering_strategy = 'agglomerative'
 		model_init = model.state_dict()
 		del model
 	elif args['strategy'] == "ifca":
@@ -203,7 +211,9 @@ if __name__ == "__main__":
 			model_init=model_init,
 			total_num_clients=args["total_num_clients"],
 			transforms=args["transforms"],
-			n_base_layers=n_base_layers
+			n_base_layers=n_base_layers,
+			clustering_strategy=clustering_strategy,
+			min_cluster_size=min_cluster_size
 		)
 	elif args['strategy'] == "ifca":
 		strategy = IFCA(

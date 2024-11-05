@@ -13,7 +13,7 @@ logging.basicConfig(filename="log_traces.log", level=logging.INFO)
 
 torch.manual_seed(0)
 
-def train_standard_classifier(model, train_dataloader, config, device=DEVICE, args=None):
+def train_standard_classifier(model, train_dataloader, config, device=DEVICE):
     """Train the network on the training set."""
 
     criterion = torch.nn.CrossEntropyLoss()
