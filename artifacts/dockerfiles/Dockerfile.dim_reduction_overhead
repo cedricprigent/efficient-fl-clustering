@@ -1,0 +1,19 @@
+FROM python:3.10-slim-buster
+WORKDIR /app
+
+RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN apt-get update -y && apt-get install procps -y
+
+COPY dockerfiles/requirements-rpi.txt requirements.txt
+RUN python -m pip install -U --no-cache-dir -r requirements.txt
+
+COPY data /tmp/app/data
+COPY pre-trained pre-trained
+
+COPY compute_embedding_vector_overhead.py .
+COPY utils utils
+COPY data_preparation data_preparation
+COPY scripts/compute_overhead.sh .
+
+ENTRYPOINT ["bash", "compute_overhead.sh"]
+# CMD ["bash"]
