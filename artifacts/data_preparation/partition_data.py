@@ -17,7 +17,37 @@ from torch.utils.data import Dataset
 from torchvision.datasets import CIFAR10, MNIST
 import torchvision.transforms as transforms
 
-from utils.partition import Partition
+class Partition(Dataset):
+    def __init__(self, data, targets, transform = None, data_type='img'):
+        self.data = data
+        self.targets = targets
+        self.transform = transform
+        self.target_transform = None
+        self.data_type = data_type
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index: int):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (image, target) where target is index of the target class.
+        """
+        img, target = self.data[index], self.targets[index]
+
+        if self.data_type == 'img':
+            img = Image.fromarray(np.array(img))
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return img, target
 
 
 def random_partitions(n_partitions, dataset, malicious=False):
