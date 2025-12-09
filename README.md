@@ -1,6 +1,6 @@
-# Efficient Resource-Constrained FL Clustering with Local Data Compression on the Edge-to-Cloud Continuum
+## About FLDrift
 
-This repository contains all artifacts, notebooks and log files used for the paper [Efficient Resource-Constrained FL Clustering with Local Data Compression on the Edge-to-Cloud Continuum].
+FLDrift extends [flower](https://github.com/adap/flower) with support for various Non-IID scenarios (i.e., introducing concept-drift and label-shift between federated peers) for FL experiments. FLDrift provides support for several concept drift scenarios, distributed training, baseline clustering strategies and training performance metrics (accuracy, training time, total communications). FLDrift was initially developped for running experiments for the paper [Efficient Resource-Constrained FL Clustering with Local Data Compression on the Edge-to-Cloud Continuum, HiPC 2024](https://ieeexplore.ieee.org/document/10884350).
 
 The repository is organized as follows:
 - [artifacts](artifacts) contains all artifacts (i.e., source codes) used for deploying experimental evaluation of our clustering approach.
